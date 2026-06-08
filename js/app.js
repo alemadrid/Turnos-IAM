@@ -66,6 +66,12 @@ function setupNavigation() {
 }
 
 window.navigateTo = function(view) {
+  // Guard: vistas restringidas a admin
+  const adminOnlyViews = ['vacations', 'report', 'settings'];
+  if (adminOnlyViews.includes(view) && !APP.isAdmin) {
+    window.showToast('🔒 Activa el modo Administrador para acceder.', 'warning');
+    return;
+  }
   APP.currentView = view;
   document.querySelectorAll('[data-nav]').forEach(btn => {
     btn.classList.toggle('nav-active', btn.dataset.nav === view);
@@ -756,8 +762,28 @@ window.closeAdminModal = function() {
 function updateAdminUI() {
   const btn   = document.getElementById('admin-toggle-btn');
   const badge = document.getElementById('admin-badge');
-  if (btn)   { btn.textContent = APP.isAdmin ? '🔓 Admin ON' : '🔐 Admin'; btn.classList.toggle('btn-admin-active', APP.isAdmin); }
-  if (badge) { badge.style.display = APP.isAdmin ? 'flex' : 'none'; }
+
+  if (btn) {
+    btn.textContent = APP.isAdmin ? '🔓 Admin ON' : '🔐 Admin';
+    btn.classList.toggle('btn-admin-active', APP.isAdmin);
+  }
+  if (badge) {
+    badge.style.display = APP.isAdmin ? 'flex' : 'none';
+  }
+
+  // Mostrar u ocultar items de nav exclusivos de admin
+  document.querySelectorAll('.nav-admin-only').forEach(el => {
+    el.style.display = APP.isAdmin ? 'flex' : 'none';
+  });
+
+  // Si el admin cierra sesión estando en una vista restringida → volver a dashboard
+  const adminOnlyViews = ['vacations', 'report', 'settings'];
+  if (!APP.isAdmin && adminOnlyViews.includes(APP.currentView)) {
+    APP.currentView = 'dashboard';
+    document.querySelectorAll('[data-nav]').forEach(btn => {
+      btn.classList.toggle('nav-active', btn.dataset.nav === 'dashboard');
+    });
+  }
 }
 
 function showLoadingOverlay(v) {
