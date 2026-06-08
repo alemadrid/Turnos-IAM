@@ -239,7 +239,7 @@ function renderDashboard() {
 
 // ─── SCHEDULE VIEW ───────────────────────────────────────────
 function renderScheduleView() {
-  const today = new Date();
+  // Usar el mes/año almacenado — NO resetear en cada render
   const genBtn = APP.isAdmin
     ? `<button class="btn-primary" onclick="openGeneratorRangeModal()">⚡ Generar Cuadrante Automático</button>`
     : `<button class="btn-disabled" title="Requiere modo Administrador" disabled>🔒 Generar Cuadrante</button>`;
@@ -255,10 +255,10 @@ function renderScheduleView() {
     </div>
     <div class="month-navigator">
       <button class="nav-arrow" onclick="changeScheduleMonth(-1)">◀</button>
-      <span id="schedule-month-label" class="month-label">Cargando...</span>
+      <span id="schedule-month-label" class="month-label">${window.monthName(window._scheduleMonth)} ${window._scheduleYear}</span>
       <button class="nav-arrow" onclick="changeScheduleMonth(1)">▶</button>
     </div>
-    <div id="schedule-calendar-wrap">${renderCalendar(today.getFullYear(), today.getMonth())}</div>
+    <div id="schedule-calendar-wrap">${renderCalendar(window._scheduleYear, window._scheduleMonth)}</div>
     <div id="modal-generator" class="modal hidden">
       <div class="modal-backdrop" onclick="closeGeneratorModal()"></div>
       <div class="modal-box">
@@ -282,8 +282,11 @@ function renderScheduleView() {
     </div>`;
 }
 
-window._scheduleMonth = new Date().getMonth();
-window._scheduleYear  = new Date().getFullYear();
+// Inicializar solo una vez al cargar la página
+if (typeof window._scheduleMonth === 'undefined') {
+  window._scheduleMonth = new Date().getMonth();
+  window._scheduleYear  = new Date().getFullYear();
+}
 
 window.changeScheduleMonth = function(delta) {
   window._scheduleMonth += delta;
@@ -760,9 +763,11 @@ window.closeAdminModal = function() {
 };
 
 function updateAdminUI() {
-  const btn   = document.getElementById('admin-toggle-btn');
-  const badge = document.getElementById('admin-badge');
+  const btn     = document.getElementById('admin-toggle-btn');
+  const badge   = document.getElementById('admin-badge');
+  const sidebar = document.getElementById('sidebar');
 
+  // Botón y badge
   if (btn) {
     btn.textContent = APP.isAdmin ? '🔓 Admin ON' : '🔐 Admin';
     btn.classList.toggle('btn-admin-active', APP.isAdmin);
@@ -771,17 +776,17 @@ function updateAdminUI() {
     badge.style.display = APP.isAdmin ? 'flex' : 'none';
   }
 
-  // Mostrar u ocultar items de nav exclusivos de admin
-  document.querySelectorAll('.nav-admin-only').forEach(el => {
-    el.style.display = APP.isAdmin ? 'flex' : 'none';
-  });
+  // Una sola clase en el sidebar controla la visibilidad de todos los nav-admin-only
+  if (sidebar) {
+    sidebar.classList.toggle('admin-active', APP.isAdmin);
+  }
 
-  // Si el admin cierra sesión estando en una vista restringida → volver a dashboard
-  const adminOnlyViews = ['vacations', 'report', 'settings'];
-  if (!APP.isAdmin && adminOnlyViews.includes(APP.currentView)) {
+  // Si cierra sesión admin estando en vista restringida → redirigir a dashboard
+  const restricted = ['vacations', 'report', 'settings'];
+  if (!APP.isAdmin && restricted.includes(APP.currentView)) {
     APP.currentView = 'dashboard';
-    document.querySelectorAll('[data-nav]').forEach(btn => {
-      btn.classList.toggle('nav-active', btn.dataset.nav === 'dashboard');
+    document.querySelectorAll('[data-nav]').forEach(b => {
+      b.classList.toggle('nav-active', b.dataset.nav === 'dashboard');
     });
   }
 }
