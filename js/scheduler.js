@@ -151,10 +151,15 @@ window.generateSchedule = function(weeks, users, vacations, holidays, config) {
     });
 
     // ── Asignar cada día laborable ──────────────────────────────
+    // IMPORTANTE: para la asignación diaria se consultan TODOS los usuarios
+    // filtrados por vacaciones de ese día concreto — no solo los disponibles
+    // el lunes. Esto resuelve el caso de vacaciones parciales de semana
+    // (ej: vacaciones vie 31 jul → lun 4 ago: el técnico está de vacaciones
+    // el lunes pero trabaja mié–vie de esa semana).
     weekDays.forEach(day => {
-      const dateStr   = window.formatDateLocal(day);
-      const holType   = window.getHolidayType(dateStr, holidays);
-      const holName   = window.getHolidayName(dateStr, holidays);
+      const dateStr = window.formatDateLocal(day);
+      const holType = window.getHolidayType(dateStr, holidays);
+      const holName = window.getHolidayName(dateStr, holidays);
 
       // Cierre total
       if (holType === 'closure') {
@@ -162,69 +167,52 @@ window.generateSchedule = function(weeks, users, vacations, holidays, config) {
         return;
       }
 
-      // Técnicos disponibles ese día concreto (no de vacaciones)
-      const dayAvailable = availableUsers.filter(u =>
+      // Disponibles ese día concreto = TODOS los usuarios menos los de vacaciones ese día
+      const dayAvailable = users.filter(u =>
         !window.isOnVacation(u.id, dateStr, vacations)
       );
 
       if (holType === 'national') {
         // Festivo nacional: 2 mañana + 2 tarde
-        // Seleccionar 2 para tarde (prioritariamente la pareja semanal si disponible)
-        const aftCandidates = dayAvailable.filter(u => afternoonIds.includes(u.id));
-        const morCandidates = dayAvailable.filter(u => !afternoonIds.includes(u.id));
-
-        // Tarde: la pareja semanal si están disponibles, si no rellenar desde resto
-        let aftDay = aftCandidates.slice(0, 2);
+        let aftDay = dayAvailable.filter(u => afternoonIds.includes(u.id)).slice(0, 2);
         if (aftDay.length < 2) {
-          const extra = dayAvailable.filter(u => !aftDay.map(x=>x.id).includes(u.id));
+          const extra = dayAvailable.filter(u => !aftDay.map(x => x.id).includes(u.id));
           aftDay = aftDay.concat(extra).slice(0, 2);
         }
         const aftDayIds = aftDay.map(u => u.id);
-
-        // Mañana: 2 personas de las restantes
-        const morPool = dayAvailable.filter(u => !aftDayIds.includes(u.id));
-        const morDay  = morPool.slice(0, 2);
-
-        schedule[dateStr] = {
-          morning:     morDay.map(u => u.id),
-          afternoon:   aftDayIds,
-          closed:      false,
-          holidayType: 'national',
-          holiday:     holName
-        };
+        const morDay    = dayAvailable.filter(u => !aftDayIds.includes(u.id)).slice(0, 2);
+        schedule[dateStr] = { morning: morDay.map(u => u.id), afternoon: aftDayIds, closed: false, holidayType: 'national', holiday: holName };
         return;
       }
 
       if (holType === 'alicante') {
         // Festivo Alicante/CV: 4 mañana + 2 tarde
-        const aftCandidates = dayAvailable.filter(u => afternoonIds.includes(u.id));
-        let aftDay = aftCandidates.slice(0, 2);
+        let aftDay = dayAvailable.filter(u => afternoonIds.includes(u.id)).slice(0, 2);
         if (aftDay.length < 2) {
-          const extra = dayAvailable.filter(u => !aftDay.map(x=>x.id).includes(u.id));
+          const extra = dayAvailable.filter(u => !aftDay.map(x => x.id).includes(u.id));
           aftDay = aftDay.concat(extra).slice(0, 2);
         }
         const aftDayIds = aftDay.map(u => u.id);
-
-        const morPool = dayAvailable.filter(u => !aftDayIds.includes(u.id));
-        const morDay  = morPool.slice(0, 4);
-
-        schedule[dateStr] = {
-          morning:     morDay.map(u => u.id),
-          afternoon:   aftDayIds,
-          closed:      false,
-          holidayType: 'alicante',
-          holiday:     holName
-        };
+        const morDay    = dayAvailable.filter(u => !aftDayIds.includes(u.id)).slice(0, 4);
+        schedule[dateStr] = { morning: morDay.map(u => u.id), afternoon: aftDayIds, closed: false, holidayType: 'alicante', holiday: holName };
         return;
       }
 
-      // Día normal
-      const morningUsers   = dayAvailable.filter(u => !afternoonIds.includes(u.id));
-      const afternoonUsers = afternoonPair.filter(u => !window.isOnVacation(u.id, dateStr, vacations));
+      // Día normal:
+      // - Tarde: miembros de la pareja semanal que ese día NO están de vacaciones
+      // - Mañana: resto de técnicos disponibles ese día (incluye miembros de la pareja
+      //   que ese día SÍ están de vacaciones → no, esos no están en dayAvailable;
+      //   pero también incluye técnicos que el lunes estaban de vacaciones pero
+      //   este día concreto ya no lo están)
+      const afternoonUsers = afternoonPair.filter(u =>
+        !window.isOnVacation(u.id, dateStr, vacations)
+      );
+      const afternoonDayIds = afternoonUsers.map(u => u.id);
+      const morningUsers    = dayAvailable.filter(u => !afternoonDayIds.includes(u.id));
 
       schedule[dateStr] = {
         morning:     morningUsers.map(u => u.id),
-        afternoon:   afternoonUsers.map(u => u.id),
+        afternoon:   afternoonDayIds,
         closed:      false,
         holidayType: null,
         holiday:     null

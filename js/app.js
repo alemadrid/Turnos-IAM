@@ -579,11 +579,36 @@ window.deleteVacation = function(userId, index) {
 function renderReportView() {
   const equity  = window.generateEquityReport(APP.users, APP.schedule, APP.vacations, APP.holidays);
   const monthly = window.generateMonthlySummary(APP.schedule, APP.users, APP.holidays, 2026);
-  const eRows = equity.map(m => `<tr>
-    <td>${m.name}</td><td class="num">${m.morningDays}</td><td class="num">${m.afternoonDays}</td>
-    <td class="num">${m.vacationDays}</td><td class="num">${m.totalWorked}</td>
-    <td class="num"><div class="score-bar-wrap"><div class="score-bar" style="width:${m.equityScore}%"></div><span>${m.equityScore}%</span></div></td>
-  </tr>`).join('');
+  const LIMIT = 1782;
+  const eRows = equity.map(m => {
+    const diff    = m.totalHours - LIMIT;
+    const pct     = Math.min(100, Math.round((m.totalHours / LIMIT) * 100));
+    const hClass  = m.hoursStatus === 'over' ? 'hours-over' : m.hoursStatus === 'warning' ? 'hours-warning' : 'hours-ok';
+    const diffEl  = diff > 0
+      ? `<span class="hours-diff-over">+${diff}h</span>`
+      : diff < 0 ? `<span class="hours-diff-under">${diff}h</span>`
+      : `<span class="hours-diff-ok">±0h</span>`;
+    return `<tr>
+      <td>${m.name}</td>
+      <td class="num">${m.morningDays}</td>
+      <td class="num">${m.afternoonDays}</td>
+      <td class="num">${m.vacationDays}</td>
+      <td class="num">${m.totalWorked}</td>
+      <td>
+        <div class="hours-cell">
+          <div class="hours-bar-wrap">
+            <div class="hours-bar ${hClass}-bar" style="width:${pct}%"></div>
+            <div class="hours-limit-mark" title="Límite 1782h"></div>
+          </div>
+          <div class="hours-nums">
+            <span class="hours-val ${hClass}">${m.totalHours}h</span>
+            ${diffEl}
+          </div>
+        </div>
+      </td>
+      <td class="num"><div class="score-bar-wrap"><div class="score-bar" style="width:${m.equityScore}%"></div><span>${m.equityScore}%</span></div></td>
+    </tr>`;
+  }).join('');
   const mRows = monthly.map(m => `<tr>
     <td>${m.month}</td><td class="num">${m.totalDays}</td><td class="num">${m.closedDays}</td>
     <td class="num ${m.understaffedDays>0?'warn':''}">${m.understaffedDays}</td>
@@ -591,15 +616,18 @@ function renderReportView() {
   </tr>`).join('');
   return `
     <div class="view-header"><h1 class="view-title">Informes y Auditoría</h1><p class="view-sub">Métricas de equidad anual y trazabilidad</p></div>
+    <div class="info-banner" style="background:rgba(79,142,247,.08);border-color:var(--accent);color:var(--text);margin-bottom:16px">
+      ℹ Límite anual RRHH: <strong>1.782 horas</strong> por técnico (turnos de 9h). La barra muestra el porcentaje consumido; en rojo si se supera el límite.
+    </div>
     <div class="toolbar">
       <button class="btn-primary" onclick="window.exportEquityReportCSV(APP.users,APP.schedule,APP.vacations,APP.holidays)">⬇ Exportar Equidad CSV</button>
       <button class="btn-secondary" onclick="window.exportScheduleCSV(APP.schedule,APP.users)">⬇ Exportar Cuadrante CSV</button>
     </div>
     <section class="section-card">
-      <h2 class="section-title">Equidad por Técnico</h2>
+      <h2 class="section-title">Equidad y Horas por Técnico</h2>
       <div class="table-wrap"><table class="data-table">
-        <thead><tr><th>Técnico</th><th>Días Mañana</th><th>Días Tarde</th><th>Vacaciones</th><th>Total Trabajado</th><th>Score Equidad</th></tr></thead>
-        <tbody>${eRows||'<tr><td colspan="6" class="empty-row">Sin datos.</td></tr>'}</tbody>
+        <thead><tr><th>Técnico</th><th>Días Mañana</th><th>Días Tarde</th><th>Vacaciones</th><th>Total Días</th><th>Horas Anuales / 1782h</th><th>Score Equidad</th></tr></thead>
+        <tbody>${eRows||'<tr><td colspan="7" class="empty-row">Sin datos. Genera el cuadrante primero.</td></tr>'}</tbody>
       </table></div>
     </section>
     <section class="section-card">
