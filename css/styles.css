@@ -1258,5 +1258,11 @@ body {
 .hours-diff-under  { color: var(--text-muted); font-size: .7rem; }
 .hours-diff-ok     { color: var(--green);  font-size: .7rem; }
 
-/* ─── Nav items admin-only: ocultos por defecto, flex al mostrarse ── */
-.nav-admin-only { display: none; }
+
+/* ─── Nav items visibles solo en modo admin ──────────────────── */
+.nav-admin-only {
+  display: none !important;
+}
+.sidebar.admin-active .nav-admin-only {
+  display: flex !important;
+}
