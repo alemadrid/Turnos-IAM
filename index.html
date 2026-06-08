@@ -3,36 +3,37 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Planificador de Turnos — Controlador de Cuadrantes e Inteligencia de Turnos IT · Alicante 2026">
+  <meta name="description" content="Planificador de Turnos — Gestión de cuadrantes IT · Alicante 2026">
   <title>Planificador de Turnos</title>
 
-  <!-- Fonts (carga antes del CSS para evitar FOUT) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,300;0,400;0,500;1,300&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap">
 
-  <!-- CSS propio -->
-  <link rel="stylesheet" href="css/styles.css">
+  <!-- Cache-busting activo en CSS (Antídoto #1) -->
+  <link rel="stylesheet" id="main-css" href="css/styles.css">
+  <script>
+    document.getElementById('main-css').href = 'css/styles.css?v=' + Date.now();
+  </script>
 </head>
 <body>
 
-<!-- ─── Loading overlay ─────────────────────────────────────── -->
+<!-- Loading overlay -->
 <div id="loading-overlay">
   <div class="loader-logo">Planificador de <span>Turnos</span></div>
   <div class="loader-bar-wrap"><div class="loader-bar"></div></div>
   <div style="font-family:'IBM Plex Mono',monospace;font-size:.68rem;color:#3d4560;margin-top:4px;letter-spacing:.08em;text-transform:uppercase;">Iniciando sistema...</div>
 </div>
 
-<!-- ─── Global Tooltip ──────────────────────────────────────── -->
+<!-- Tooltip global -->
 <div id="global-tooltip"></div>
 
-<!-- ─── Toast container ─────────────────────────────────────── -->
+<!-- Toast container -->
 <div id="toast-container"></div>
 
-<!-- ─── App layout ──────────────────────────────────────────── -->
+<!-- App layout -->
 <div class="app-layout">
 
-  <!-- Sidebar -->
   <aside class="sidebar" id="sidebar">
     <div class="sidebar-logo">
       <div class="logo-mark">Planificador de <span>Turnos</span></div>
@@ -40,19 +41,21 @@
     </div>
 
     <nav class="sidebar-nav">
+      <!-- Siempre visibles -->
       <button class="nav-item nav-active" data-nav="dashboard">
         <span class="nav-icon">◈</span> Dashboard
       </button>
       <button class="nav-item" data-nav="schedule">
         <span class="nav-icon">◻</span> Planificador
       </button>
-      <button class="nav-item" data-nav="vacations">
+      <!-- Solo visibles en modo admin -->
+      <button class="nav-item nav-admin-only" data-nav="vacations" style="display:none">
         <span class="nav-icon">◇</span> Vacaciones
       </button>
-      <button class="nav-item" data-nav="report">
+      <button class="nav-item nav-admin-only" data-nav="report" style="display:none">
         <span class="nav-icon">◉</span> Informes
       </button>
-      <button class="nav-item" data-nav="settings">
+      <button class="nav-item nav-admin-only" data-nav="settings" style="display:none">
         <span class="nav-icon">◎</span> Configuración
       </button>
     </nav>
@@ -65,7 +68,6 @@
     </div>
   </aside>
 
-  <!-- Main -->
   <div class="main-wrap">
     <header class="top-bar">
       <div class="top-bar-left">
@@ -80,14 +82,12 @@
     </header>
 
     <main class="main-content">
-      <div id="app-root">
-        <!-- Renderizado dinámico por app.js -->
-      </div>
+      <div id="app-root"></div>
     </main>
   </div>
 </div>
 
-<!-- ─── Modal: Autenticación Admin ─────────────────────────── -->
+<!-- Modal admin -->
 <div id="modal-admin" class="modal hidden">
   <div class="modal-backdrop" onclick="closeAdminModal()"></div>
   <div class="modal-box" style="max-width:380px">
@@ -97,9 +97,7 @@
       <label>Contraseña</label>
       <input type="password" id="admin-password-input" placeholder="••••••••" autocomplete="off">
     </div>
-    <div id="admin-error-msg" class="hidden">
-      Contraseña incorrecta. Inténtalo de nuevo.
-    </div>
+    <div id="admin-error-msg" class="hidden">Contraseña incorrecta. Inténtalo de nuevo.</div>
     <div class="modal-actions">
       <button class="btn-ghost" onclick="closeAdminModal()">Cancelar</button>
       <button class="btn-primary" onclick="submitAdminPassword()">Verificar</button>
@@ -107,7 +105,7 @@
   </div>
 </div>
 
-<!-- ─── Scripts (orden correcto de dependencias) ───────────── -->
+<!-- Scripts en orden correcto de dependencias -->
 <script src="js/utils.js"></script>
 <script src="js/rules.js"></script>
 <script src="js/scheduler.js"></script>
@@ -116,17 +114,16 @@
 <script src="js/app.js"></script>
 
 <script>
-  // ─── Topbar fecha ─────────────────────────────────────────
+  // Topbar: fecha actual
   (function() {
     const el = document.getElementById('topbar-date');
     if (!el) return;
-    const now = new Date();
-    el.textContent = now.toLocaleDateString('es-ES', {
+    el.textContent = new Date().toLocaleDateString('es-ES', {
       weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
     });
   })();
 
-  // ─── Mobile sidebar toggle ────────────────────────────────
+  // Mobile sidebar
   window.toggleSidebar = function() {
     document.getElementById('sidebar').classList.toggle('open');
   };
