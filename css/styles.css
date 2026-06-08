@@ -1203,3 +1203,57 @@ body {
   cursor: default;
 }
 .cell-weekend:hover { border-color: var(--border) !important; background: var(--bg-2) !important; }
+
+/* ─── Columna de horas anuales ───────────────────────────────── */
+.hours-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 160px;
+}
+
+.hours-bar-wrap {
+  position: relative;
+  background: var(--bg-4);
+  border-radius: 99px;
+  height: 6px;
+  overflow: visible;
+}
+
+.hours-bar {
+  height: 100%;
+  border-radius: 99px;
+  transition: width .4s ease;
+}
+
+/* Marca vertical en el 100% = límite 1782h */
+.hours-limit-mark {
+  position: absolute;
+  right: 0;
+  top: -3px;
+  width: 2px;
+  height: 12px;
+  background: var(--text-dim);
+  border-radius: 1px;
+}
+
+.hours-ok-bar      { background: linear-gradient(90deg, #2ecc71, #27ae60); }
+.hours-warning-bar { background: linear-gradient(90deg, #f39c12, #e67e22); }
+.hours-over-bar    { background: linear-gradient(90deg, #e74c3c, #c0392b); width: 100% !important; }
+
+.hours-nums {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: .75rem;
+}
+
+.hours-val         { font-weight: 600; }
+.hours-ok          { color: var(--green); }
+.hours-warning     { color: var(--orange); }
+.hours-over        { color: var(--red); }
+
+.hours-diff-over   { color: var(--red);    font-size: .7rem; }
+.hours-diff-under  { color: var(--text-muted); font-size: .7rem; }
+.hours-diff-ok     { color: var(--green);  font-size: .7rem; }
