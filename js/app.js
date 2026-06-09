@@ -56,6 +56,13 @@ function loadOperationalData() {
   APP.schedule   = window.loadScheduleLocal();
   APP.vacations  = window.loadVacationsLocal();
   APP.auditTrail = window.loadAuditTrail();
+  // Cargar fechas de alta 2026 guardadas por el admin (sobreescriben users.json)
+  try {
+    const stored = JSON.parse(localStorage.getItem('planturnos_joinDates_2026') || '{}');
+    APP.users.forEach(u => {
+      if (stored[u.id]) u.joinDate2026 = stored[u.id];
+    });
+  } catch(e) { /* silencioso */ }
 }
 
 // ─── Navegación ──────────────────────────────────────────────
@@ -588,17 +595,24 @@ window.deleteVacation = function(userId, index) {
 function renderReportView() {
   const equity  = window.generateEquityReport(APP.users, APP.schedule, APP.vacations, APP.holidays);
   const monthly = window.generateMonthlySummary(APP.schedule, APP.users, APP.holidays, 2026);
-  const LIMIT = 1782;
+
   const eRows = equity.map(m => {
-    const diff    = m.totalHours - LIMIT;
-    const pct     = Math.min(100, Math.round((m.totalHours / LIMIT) * 100));
-    const hClass  = m.hoursStatus === 'over' ? 'hours-over' : m.hoursStatus === 'warning' ? 'hours-warning' : 'hours-ok';
-    const diffEl  = diff > 0
-      ? `<span class="hours-diff-over">+${diff}h</span>`
-      : diff < 0 ? `<span class="hours-diff-under">${diff}h</span>`
+    const pct    = m.hoursProportional > 0 ? Math.min(100, Math.round((m.hoursTotal / m.hoursProportional) * 100)) : 0;
+    const hClass = m.hoursStatus === 'over' ? 'hours-over' : m.hoursStatus === 'warning' ? 'hours-warning' : 'hours-ok';
+    const diffEl = m.hoursDiff > 0
+      ? `<span class="hours-diff-over">+${m.hoursDiff}h</span>`
+      : m.hoursDiff < 0 ? `<span class="hours-diff-under">${m.hoursDiff}h</span>`
       : `<span class="hours-diff-ok">±0h</span>`;
+    const joinBtn = APP.isAdmin
+      ? `<button class="btn-join-edit" onclick="openJoinDateModal(${m.id})" title="Editar fecha de alta 2026">✎</button>`
+      : '';
     return `<tr>
-      <td>${m.name}</td>
+      <td>
+        <div class="tech-name-cell">
+          <span>${m.name}</span>
+          <span class="join-date-tag">${m.joinDate2026}${joinBtn}</span>
+        </div>
+      </td>
       <td class="num">${m.morningDays}</td>
       <td class="num">${m.afternoonDays}</td>
       <td class="num">${m.vacationDays}</td>
@@ -607,10 +621,13 @@ function renderReportView() {
         <div class="hours-cell">
           <div class="hours-bar-wrap">
             <div class="hours-bar ${hClass}-bar" style="width:${pct}%"></div>
-            <div class="hours-limit-mark" title="Límite 1782h"></div>
+            <div class="hours-limit-mark" title="Límite proporcional: ${m.hoursProportional}h"></div>
           </div>
           <div class="hours-nums">
-            <span class="hours-val ${hClass}">${m.totalHours}h</span>
+            <span class="hours-val ${hClass}" title="Jornada previa: ${m.hoursPreTurns}h + Turnos: ${m.hoursTurns}h">
+              ${m.hoursTotal}h
+            </span>
+            <span class="hours-prop">/ ${m.hoursProportional}h</span>
             ${diffEl}
           </div>
         </div>
@@ -618,27 +635,42 @@ function renderReportView() {
       <td class="num"><div class="score-bar-wrap"><div class="score-bar" style="width:${m.equityScore}%"></div><span>${m.equityScore}%</span></div></td>
     </tr>`;
   }).join('');
+
   const mRows = monthly.map(m => `<tr>
     <td>${m.month}</td><td class="num">${m.totalDays}</td><td class="num">${m.closedDays}</td>
     <td class="num ${m.understaffedDays>0?'warn':''}">${m.understaffedDays}</td>
     <td class="num">${m.avgMorningCoverage}</td><td class="num">${m.avgAfternoonCoverage}</td>
   </tr>`).join('');
+
   return `
-    <div class="view-header"><h1 class="view-title">Informes y Auditoría</h1><p class="view-sub">Métricas de equidad anual y trazabilidad</p></div>
-    <div class="info-banner" style="background:rgba(79,142,247,.08);border-color:var(--accent);color:var(--text);margin-bottom:16px">
-      ℹ Límite anual RRHH: <strong>1.782 horas</strong> por técnico (turnos de 9h). La barra muestra el porcentaje consumido; en rojo si se supera el límite.
+    <div class="view-header"><h1 class="view-title">Informes y Auditoría</h1><p class="view-sub">Métricas de equidad, horas anuales y trazabilidad</p></div>
+
+    <div class="info-banner" style="background:rgba(79,142,247,.07);border-color:var(--accent);color:var(--text-muted);margin-bottom:16px;font-size:.8rem;line-height:1.6">
+      <strong style="color:var(--text)">Base legal · Art. 34 ET (vigente junio 2026)</strong><br>
+      Jornada máx. legal: 40h/sem de <em>trabajo efectivo</em> en cómputo anual · Límite empresa (RRHH): <strong>1.782h</strong><br>
+      El descanso de comida (1h/turno) <strong>no computa</strong> como trabajo efectivo (art. 34.4 ET) salvo convenio contrario → 9h presenciales = <strong>8h efectivas</strong>.<br>
+      Jornada previa a los turnos (hasta 5 jul 2026): <strong>8h efectivas/día</strong>. · Las horas proporcionales se calculan desde la fecha de alta en 2026.
     </div>
+
     <div class="toolbar">
-      <button class="btn-primary" onclick="window.exportEquityReportCSV(APP.users,APP.schedule,APP.vacations,APP.holidays)">⬇ Exportar Equidad CSV</button>
+      <button class="btn-primary" onclick="window.exportEquityReportCSV(APP.users,APP.schedule,APP.vacations,APP.holidays)">⬇ Exportar Informe CSV</button>
       <button class="btn-secondary" onclick="window.exportScheduleCSV(APP.schedule,APP.users)">⬇ Exportar Cuadrante CSV</button>
     </div>
+
     <section class="section-card">
-      <h2 class="section-title">Equidad y Horas por Técnico</h2>
+      <h2 class="section-title">Horas y Equidad por Técnico</h2>
       <div class="table-wrap"><table class="data-table">
-        <thead><tr><th>Técnico</th><th>Días Mañana</th><th>Días Tarde</th><th>Vacaciones</th><th>Total Días</th><th>Horas Anuales / 1782h</th><th>Score Equidad</th></tr></thead>
+        <thead><tr>
+          <th>Técnico / Alta 2026</th>
+          <th>Días Mañana</th><th>Días Tarde</th>
+          <th>Vacaciones</th><th>Total Días</th>
+          <th>Horas acumuladas / proporcional</th>
+          <th>Score Equidad</th>
+        </tr></thead>
         <tbody>${eRows||'<tr><td colspan="7" class="empty-row">Sin datos. Genera el cuadrante primero.</td></tr>'}</tbody>
       </table></div>
     </section>
+
     <section class="section-card">
       <h2 class="section-title">Resumen Mensual</h2>
       <div class="table-wrap"><table class="data-table">
@@ -646,6 +678,7 @@ function renderReportView() {
         <tbody>${mRows}</tbody>
       </table></div>
     </section>
+
     <section class="section-card">
       <h2 class="section-title">Log de Auditoría</h2>
       <div class="table-wrap"><table class="data-table">
@@ -656,8 +689,58 @@ function renderReportView() {
           <td class="mono">${e.date||'-'}</td><td>${e.userName||'-'}</td><td>${e.performedBy||'-'}</td>
         </tr>`).join('')||'<tr><td colspan="5" class="empty-row">Sin registros.</td></tr>'}</tbody>
       </table></div>
-    </section>`;
+    </section>
+
+    <!-- Modal fecha de alta -->
+    <div id="modal-join-date" class="modal hidden">
+      <div class="modal-backdrop" onclick="closeJoinDateModal()"></div>
+      <div class="modal-box" id="join-date-content" style="max-width:380px"></div>
+    </div>`;
 }
+
+// ── Editor de fecha de alta 2026 ──
+window.openJoinDateModal = function(userId) {
+  const u = APP.users.find(x => x.id === userId);
+  if (!u) return;
+  document.getElementById('join-date-content').innerHTML = `
+    <h3 class="modal-title">Fecha de Alta 2026</h3>
+    <p class="modal-desc">${u.name}</p>
+    <p style="font-size:.8rem;color:var(--text-muted);margin-bottom:12px;line-height:1.5">
+      Fecha desde la que este técnico computa horas en 2026.<br>
+      Si entró antes de 2026, deja el 01/01/2026.
+    </p>
+    <div class="form-row">
+      <label>Fecha de alta en 2026</label>
+      <input type="date" id="join-date-input" min="2026-01-01" max="2026-12-31"
+             value="${u.joinDate2026 || '2026-01-01'}">
+    </div>
+    <div class="modal-actions">
+      <button class="btn-ghost" onclick="closeJoinDateModal()">Cancelar</button>
+      <button class="btn-primary" onclick="saveJoinDate(${userId})">Guardar</button>
+    </div>`;
+  document.getElementById('modal-join-date').classList.remove('hidden');
+};
+
+window.saveJoinDate = function(userId) {
+  const val = document.getElementById('join-date-input').value;
+  if (!val) return;
+  const u = APP.users.find(x => x.id === userId);
+  if (!u) return;
+  u.joinDate2026 = val;
+  // Guardar en localStorage para persistencia (solo joinDate2026, no el perfil)
+  const stored = JSON.parse(localStorage.getItem('planturnos_joinDates_2026') || '{}');
+  stored[userId] = val;
+  localStorage.setItem('planturnos_joinDates_2026', JSON.stringify(stored));
+  window.appendAuditEntry('SET_JOIN_DATE_2026', val, '-', userId, u.name, 'Admin');
+  closeJoinDateModal();
+  renderApp();
+  window.showToast(`Fecha de alta actualizada para ${u.name}.`, 'success');
+};
+
+window.closeJoinDateModal = function() {
+  const m = document.getElementById('modal-join-date');
+  if (m) m.classList.add('hidden');
+};
 
 // ─── SETTINGS VIEW ───────────────────────────────────────────
 function renderSettingsView() {
