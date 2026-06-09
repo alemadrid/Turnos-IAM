@@ -1266,3 +1266,37 @@ body {
 .sidebar.admin-active .nav-admin-only {
   display: flex !important;
 }
+
+/* ─── Tabla horas: nombre + fecha de alta ────────────────────── */
+.tech-name-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.join-date-tag {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--font-mono);
+  font-size: .68rem;
+  color: var(--text-dim);
+}
+.btn-join-edit {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-size: .65rem;
+  cursor: pointer;
+  transition: var(--transition);
+  line-height: 1.4;
+}
+.btn-join-edit:hover { border-color: var(--accent); color: var(--accent); }
+
+/* Horas proporcionales */
+.hours-prop {
+  font-family: var(--font-mono);
+  font-size: .7rem;
+  color: var(--text-dim);
+}
