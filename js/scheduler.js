@@ -79,9 +79,10 @@ window.generateSchedule = function(weeks, users, vacations, holidays, config) {
     const mondayStr   = window.formatDateLocal(monday);
     const monthKey    = `${monday.getFullYear()}-${monday.getMonth()}`;
 
-    // Disponibles esta semana (no de vacaciones el lunes)
+    // Disponibles esta semana: no de vacaciones el lunes Y ya incorporados
     const availableUsers = users.filter(u =>
-      !window.isOnVacation(u.id, mondayStr, vacations)
+      !window.isOnVacation(u.id, mondayStr, vacations) &&
+      window.getEffectiveStartDate(u.id) <= mondayStr
     );
 
     const seniors  = availableUsers.filter(u => u.profile === 'senior');
@@ -167,9 +168,10 @@ window.generateSchedule = function(weeks, users, vacations, holidays, config) {
         return;
       }
 
-      // Disponibles ese día concreto = TODOS los usuarios menos los de vacaciones ese día
+      // Disponibles ese día: no de vacaciones Y ya incorporados en esa fecha
       const dayAvailable = users.filter(u =>
-        !window.isOnVacation(u.id, dateStr, vacations)
+        !window.isOnVacation(u.id, dateStr, vacations) &&
+        window.getEffectiveStartDate(u.id) <= dateStr
       );
 
       if (holType === 'national') {
@@ -205,7 +207,8 @@ window.generateSchedule = function(weeks, users, vacations, holidays, config) {
       //   pero también incluye técnicos que el lunes estaban de vacaciones pero
       //   este día concreto ya no lo están)
       const afternoonUsers = afternoonPair.filter(u =>
-        !window.isOnVacation(u.id, dateStr, vacations)
+        !window.isOnVacation(u.id, dateStr, vacations) &&
+        window.getEffectiveStartDate(u.id) <= dateStr
       );
       const afternoonDayIds = afternoonUsers.map(u => u.id);
       const morningUsers    = dayAvailable.filter(u => !afternoonDayIds.includes(u.id));

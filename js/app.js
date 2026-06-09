@@ -296,13 +296,23 @@ function renderScheduleView() {
       <div class="modal-backdrop" onclick="closeGeneratorModal()"></div>
       <div class="modal-box">
         <h3 class="modal-title">Generar Cuadrante Automático</h3>
-        <p class="modal-desc">Solo días laborables lun–vie. Festivos aplicados por categoría.</p>
-        <div class="form-row"><label>Fecha Inicio</label><input type="date" id="gen-start" value="2026-01-01"></div>
+        <p class="modal-desc">
+          Solo días laborables lun–vie. Festivos aplicados por categoría.<br>
+          <strong style="color:var(--accent)">Los turnos rotativos solo se generan desde el 06/07/2026.</strong>
+          El período anterior (incorporación → 5 jul) se computa como jornada normal en los Informes,
+          pero no genera entradas en el cuadrante.
+        </p>
+        <div class="form-row">
+          <label>Fecha Inicio <span style="font-size:.75rem;color:var(--text-muted)">(mín. 06/07/2026)</span></label>
+          <input type="date" id="gen-start" value="2026-07-06" min="2026-07-06">
+        </div>
         <div class="form-row"><label>Fecha Fin</label><input type="date" id="gen-end" value="2026-12-31"></div>
         <div class="form-row checkbox-row">
           <input type="checkbox" id="gen-overwrite">
           <label for="gen-overwrite">Sobreescribir cuadrante existente</label>
         </div>
+        <div id="gen-error-msg" style="display:none;padding:8px 12px;border-radius:6px;font-size:.82rem;
+             background:var(--red-dim);color:var(--red);border:1px solid var(--red);margin-top:4px"></div>
         <div class="modal-actions">
           <button class="btn-ghost" onclick="closeGeneratorModal()">Cancelar</button>
           <button class="btn-primary" onclick="executeAutoGenerate()">Generar</button>
@@ -421,9 +431,27 @@ window.executeAutoGenerate = function() {
   const startStr  = document.getElementById('gen-start').value;
   const endStr    = document.getElementById('gen-end').value;
   const overwrite = document.getElementById('gen-overwrite').checked;
-  if (!startStr || !endStr) { window.showToast('Indica fechas de inicio y fin.', 'warning'); return; }
+  const errEl     = document.getElementById('gen-error-msg');
+
+  const showGenErr = (msg) => {
+    if (errEl) { errEl.textContent = msg; errEl.style.display = 'block'; }
+    else window.showToast(msg, 'warning');
+  };
+  if (errEl) errEl.style.display = 'none';
+
+  if (!startStr || !endStr) { showGenErr('Indica fechas de inicio y fin.'); return; }
+
+  // Turno rotativo solo desde el 06/07/2026
+  if (startStr < '2026-07-06') {
+    showGenErr('❌ Los turnos rotativos solo se pueden generar desde el 06/07/2026. ' +
+               'El período anterior se registra en Informes como jornada de incorporación (8h/día), ' +
+               'pero no entra en el cuadrante.');
+    return;
+  }
+  if (endStr < startStr) { showGenErr('La fecha de fin debe ser posterior a la de inicio.'); return; }
+
   const weeks = window.getWeeksInRange(startStr, endStr);
-  if (weeks.length === 0) { window.showToast('Rango inválido.', 'error'); return; }
+  if (weeks.length === 0) { showGenErr('Rango inválido.'); return; }
   const { schedule, contingencies } = window.generateSchedule(weeks, APP.users, APP.vacations, APP.holidays, APP.config);
   if (overwrite) APP.schedule = schedule;
   else Object.assign(APP.schedule, schedule);
