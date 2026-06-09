@@ -145,5 +145,33 @@ window.clearAllLocalData = function() {
   localStorage.removeItem(STORAGE_KEYS.SCHEDULE);
   localStorage.removeItem(STORAGE_KEYS.VACATIONS);
   localStorage.removeItem(STORAGE_KEYS.AUDIT_TRAIL);
+  localStorage.removeItem('planturnos_startdates_2026');
   window.showToast('Datos locales eliminados. Recarga la página.', 'warning');
+};
+
+/**
+ * Guarda las fechas de inicio de técnicos (overrides sobre users.json).
+ * Permite registrar cuándo empezó cada técnico en la empresa / en el período
+ * para el cómputo de horas hasta el 6 de julio.
+ */
+window.saveUserStartDates = function(overrides) {
+  try {
+    localStorage.setItem('planturnos_startdates_2026', JSON.stringify(overrides));
+  } catch (e) {
+    window.showToast('Error al guardar fechas de inicio.', 'error');
+    console.error('saveUserStartDates:', e);
+  }
+};
+
+/**
+ * Carga las fechas de inicio de técnicos desde localStorage.
+ */
+window.loadUserStartDates = function() {
+  try {
+    const raw = localStorage.getItem('planturnos_startdates_2026');
+    return raw ? JSON.parse(raw) : {};
+  } catch (e) {
+    console.error('loadUserStartDates:', e);
+    return {};
+  }
 };

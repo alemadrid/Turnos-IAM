@@ -500,6 +500,8 @@ body {
 }
 
 .vac-label { font-size: .7rem; color: var(--text-muted); font-family: var(--font-mono); }
+.member-start { font-size: .68rem; color: var(--accent); font-family: var(--font-mono);
+                margin-top: 3px; letter-spacing: .02em; }
 
 .status-badge {
   font-size: .7rem;

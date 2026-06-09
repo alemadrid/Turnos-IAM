@@ -7,14 +7,15 @@
 // ============================================================
 
 window.APP = {
-  config:      null,
-  users:       [],
-  holidays:    {},
-  schedule:    {},
-  vacations:   {},
-  auditTrail:  [],
-  isAdmin:     false,
-  currentView: 'dashboard'
+  config:         null,
+  users:          [],
+  holidays:       {},
+  schedule:       {},
+  vacations:      {},
+  auditTrail:     [],
+  userStartDates: {},   // overrides de fecha de inicio por técnico
+  isAdmin:        false,
+  currentView:    'dashboard'
 };
 
 // ─── Init ────────────────────────────────────────────────────
@@ -53,17 +54,31 @@ async function loadStaticData() {
 }
 
 function loadOperationalData() {
-  APP.schedule   = window.loadScheduleLocal();
-  APP.vacations  = window.loadVacationsLocal();
-  APP.auditTrail = window.loadAuditTrail();
-  // Cargar fechas de alta 2026 guardadas por el admin (sobreescriben users.json)
+  APP.schedule        = window.loadScheduleLocal();
+  APP.vacations       = window.loadVacationsLocal();
+  APP.auditTrail      = window.loadAuditTrail();
+  APP.userStartDates  = window.loadUserStartDates();
+
+  // Compatibilidad: mantener alta 2026 usada por el informe proporcional
   try {
     const stored = JSON.parse(localStorage.getItem('planturnos_joinDates_2026') || '{}');
     APP.users.forEach(u => {
       if (stored[u.id]) u.joinDate2026 = stored[u.id];
     });
-  } catch(e) { /* silencioso */ }
+  } catch (e) { /* silencioso */ }
 }
+
+/**
+ * Devuelve la fecha de inicio efectiva de un técnico para el cómputo
+ * del período de incorporación (joinDate si es ≥ 2026-01-01, si no 2026-01-01).
+ * El override de localStorage tiene prioridad sobre users.json.
+ */
+window.getEffectiveStartDate = function(userId) {
+  if (APP.userStartDates && APP.userStartDates[userId]) return APP.userStartDates[userId];
+  const u = APP.users.find(x => x.id === userId);
+  if (!u || !u.joinDate) return '2026-01-01';
+  return u.joinDate >= '2026-01-01' ? u.joinDate : '2026-01-01';
+};
 
 // ─── Navegación ──────────────────────────────────────────────
 function setupNavigation() {
@@ -212,6 +227,10 @@ function renderDashboard() {
     const statusEl = onVac
       ? `<span class="status-badge status-vacation" data-tip="${vacTip}">🏖 Vacaciones</span>`
       : `<span class="status-badge status-${status}">${status === 'working' ? '✓ Activo' : '🔒 Festivo'}</span>`;
+    const effStart = window.getEffectiveStartDate(u.id);
+    const startLabel = effStart > '2026-01-01'
+      ? `<div class="member-start" data-tip="Fecha de incorporación al cómputo de horas">📅 Desde ${effStart}</div>`
+      : '';
     return `
       <div class="team-member ${status}">
         <div class="member-avatar av-${status}">${initials(u.name)}</div>
@@ -219,6 +238,7 @@ function renderDashboard() {
           <div class="member-name">${u.name}</div>
           <div class="vac-bar-wrap"><div class="vac-bar" style="width:${pct}%"></div></div>
           <div class="vac-label">${used}/${u.vacationDaysTotal} días vacaciones</div>
+          ${startLabel}
         </div>
         <div class="member-status-col">${statusEl}</div>
       </div>`;
@@ -593,9 +613,9 @@ window.deleteVacation = function(userId, index) {
 
 // ─── REPORT VIEW ─────────────────────────────────────────────
 function renderReportView() {
-  const equity  = window.generateEquityReport(APP.users, APP.schedule, APP.vacations, APP.holidays);
-  const monthly = window.generateMonthlySummary(APP.schedule, APP.users, APP.holidays, 2026);
-
+  const equity      = window.generateEquityReport(APP.users, APP.schedule, APP.vacations, APP.holidays);
+  const monthly     = window.generateMonthlySummary(APP.schedule, APP.users, APP.holidays, 2026);
+  const onboarding  = window.generateOnboardingReport(APP.users, APP.schedule, APP.holidays, APP.userStartDates);
   const eRows = equity.map(m => {
     const pct    = m.hoursProportional > 0 ? Math.min(100, Math.round((m.hoursTotal / m.hoursProportional) * 100)) : 0;
     const hClass = m.hoursStatus === 'over' ? 'hours-over' : m.hoursStatus === 'warning' ? 'hours-warning' : 'hours-ok';
@@ -642,6 +662,32 @@ function renderReportView() {
     <td class="num">${m.avgMorningCoverage}</td><td class="num">${m.avgAfternoonCoverage}</td>
   </tr>`).join('');
 
+  const oRows = onboarding.map(o => {
+    const pct    = o.targetHours > 0 ? Math.min(100, Math.round((o.workedHours / o.targetHours) * 100)) : 0;
+    const oClass = o.diff < 0 ? 'hours-over' : o.diff === 0 ? 'hours-ok' : 'hours-ok';
+    const diffEl = o.diff > 0
+      ? `<span class="hours-diff-over">+${o.diff}h</span>`
+      : o.diff < 0 ? `<span class="hours-diff-under">${o.diff}h</span>`
+      : `<span class="hours-diff-ok">±0h</span>`;
+    return `<tr>
+      <td>${o.name}</td>
+      <td class="mono">${o.startDate}</td>
+      <td class="num">${o.targetDays}</td>
+      <td class="num">${o.targetHours}h</td>
+      <td class="num">${o.workedDays}</td>
+      <td>
+        <div class="hours-cell">
+          <div class="hours-bar-wrap">
+            <div class="hours-bar ${oClass}-bar" style="width:${pct}%"></div>
+          </div>
+          <div class="hours-nums">
+            <span class="hours-val ${oClass}">${o.workedHours}h</span>
+            ${diffEl}
+          </div>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
   return `
     <div class="view-header"><h1 class="view-title">Informes y Auditoría</h1><p class="view-sub">Métricas de equidad, horas anuales y trazabilidad</p></div>
 
@@ -657,6 +703,20 @@ function renderReportView() {
       <button class="btn-secondary" onclick="window.exportScheduleCSV(APP.schedule,APP.users)">⬇ Exportar Cuadrante CSV</button>
     </div>
 
+        <section class="section-card">
+      <h2 class="section-title">Período de Incorporación — hasta 06/07/2026</h2>
+      <div class="info-banner" style="margin-bottom:12px">
+        📋 Cómputo de horas desde la fecha de incorporación de cada técnico hasta el <strong>6 de julio de 2026</strong>.
+        Turnos de <strong>9h − 1h comida = 8h efectivas/día</strong>. Edita las fechas en <em>Configuración → Fechas de Incorporación</em>.
+      </div>
+      <div class="toolbar" style="margin-bottom:8px">
+        <button class="btn-secondary" onclick="window.exportOnboardingReportCSV(APP.users,APP.schedule,APP.holidays,APP.userStartDates)">⬇ Exportar Incorporación CSV</button>
+      </div>
+      <div class="table-wrap"><table class="data-table">
+        <thead><tr><th>Técnico</th><th>Incorporación</th><th>Días Objetivo</th><th>Horas Objetivo</th><th>Días Cuadrante</th><th>Horas Cuadrante</th></tr></thead>
+        <tbody>${oRows||'<tr><td colspan="6" class="empty-row">Sin datos. Genera el cuadrante primero.</td></tr>'}</tbody>
+      </table></div>
+    </section>
     <section class="section-card">
       <h2 class="section-title">Horas y Equidad por Técnico</h2>
       <div class="table-wrap"><table class="data-table">
@@ -744,6 +804,30 @@ window.closeJoinDateModal = function() {
 
 // ─── SETTINGS VIEW ───────────────────────────────────────────
 function renderSettingsView() {
+  // Tabla de fechas de incorporación (siempre visible; edición solo en admin)
+  const startDateRows = APP.users.map(u => {
+    const effStart  = window.getEffectiveStartDate(u.id);
+    const isOverride = APP.userStartDates && APP.userStartDates[u.id];
+    const badge = isOverride
+      ? `<span class="audit-tag" style="background:var(--accent-dim);color:var(--accent)">editada</span>`
+      : `<span class="audit-tag" style="background:var(--bg-4);color:var(--text-muted)">por defecto</span>`;
+    const editBtn = APP.isAdmin
+      ? `<button class="btn-add" style="font-size:.75rem;padding:2px 10px"
+               onclick="openEditStartDateModal(${u.id})">Editar</button>`
+      : '';
+    const resetBtn = (APP.isAdmin && isOverride)
+      ? `<button class="btn-del" style="font-size:.75rem;padding:2px 8px;margin-left:4px"
+               onclick="resetStartDate(${u.id})" title="Restablecer al valor de users.json">✕</button>`
+      : '';
+    return `<tr>
+      <td>${u.name}</td>
+      <td class="mono">${u.joinDate || '—'}</td>
+      <td class="mono">${effStart}</td>
+      <td>${badge}</td>
+      <td>${editBtn}${resetBtn}</td>
+    </tr>`;
+  }).join('');
+
   return `
     <div class="view-header"><h1 class="view-title">Configuración y Datos</h1><p class="view-sub">Backup, restauración y ajustes</p></div>
     <section class="section-card">
@@ -753,6 +837,19 @@ function renderSettingsView() {
         <button class="btn-primary" onclick="window.exportBackup()">⬇ Exportar Backup JSON</button>
         <label class="btn-secondary file-btn">⬆ Importar Backup<input type="file" accept=".json" onchange="handleImportBackup(event)" style="display:none"></label>
       </div>
+    </section>
+    <section class="section-card">
+      <h2 class="section-title">📅 Fechas de Incorporación</h2>
+      <p class="section-desc">
+        Fecha de inicio de cómputo de cada técnico para el <strong>período hasta el 6 de julio de 2026</strong>
+        (turno 9h − 1h comida = 8h efectivas/día).
+        Si la fecha en <code>users.json</code> es anterior a 2026, el sistema usa <code>2026-01-01</code> por defecto.
+        ${!APP.isAdmin ? '<br><span style="opacity:.7">Activa el modo Administrador para editar.</span>' : ''}
+      </p>
+      <div class="table-wrap"><table class="data-table">
+        <thead><tr><th>Técnico</th><th>joinDate (JSON)</th><th>Fecha efectiva cómputo</th><th>Estado</th><th></th></tr></thead>
+        <tbody>${startDateRows}</tbody>
+      </table></div>
     </section>
     <section class="section-card">
       <h2 class="section-title">Leyenda de Festivos</h2>
@@ -784,8 +881,71 @@ window.handleImportBackup = function(e) {
 };
 window.confirmClearData = function() {
   if (confirm('⚠ ¿Eliminar TODOS los datos locales?')) {
-    window.clearAllLocalData(); APP.schedule={}; APP.vacations={}; APP.auditTrail=[]; renderApp();
+    window.clearAllLocalData();
+    APP.schedule={}; APP.vacations={}; APP.auditTrail=[]; APP.userStartDates={};
+    renderApp();
   }
+};
+
+// ─── Edición de fechas de incorporación ──────────────────────
+window.openEditStartDateModal = function(userId) {
+  if (!APP.isAdmin) { window.showToast('🔒 Requiere modo Administrador.', 'warning'); return; }
+  const user = APP.users.find(u => u.id === userId);
+  if (!user) return;
+  const current = window.getEffectiveStartDate(userId);
+  const box = document.getElementById('edit-startdate-content');
+  if (!box) { window.showToast('Error: recarga la página.', 'error'); return; }
+  box.innerHTML = `
+    <h3 class="modal-title">Fecha de Incorporación</h3>
+    <p class="modal-desc" style="color:var(--accent);font-weight:600">${user.name}</p>
+    <p class="modal-desc" style="font-size:.82rem;opacity:.8">
+      Establece la fecha desde la que se computarán las 8h efectivas/día hasta el 6 de julio de 2026.
+    </p>
+    <div class="form-row">
+      <label>Fecha de inicio (YYYY-MM-DD)</label>
+      <input type="date" id="startdate-input"
+             min="2026-01-01" max="2026-07-06" value="${current}">
+    </div>
+    <div class="modal-actions">
+      <button class="btn-ghost" onclick="closeEditStartDateModal()">Cancelar</button>
+      <button class="btn-primary" onclick="saveStartDateEdit(${userId})">Guardar</button>
+    </div>`;
+  document.getElementById('modal-startdate').classList.remove('hidden');
+  setTimeout(() => { const i = document.getElementById('startdate-input'); if (i) i.focus(); }, 100);
+};
+
+window.saveStartDateEdit = function(userId) {
+  const input = document.getElementById('startdate-input');
+  if (!input) return;
+  const val = input.value;
+  if (!val || val < '2026-01-01' || val > '2026-07-06') {
+    window.showToast('Fecha inválida. Debe estar entre 2026-01-01 y 2026-07-06.', 'warning');
+    return;
+  }
+  if (!APP.userStartDates) APP.userStartDates = {};
+  APP.userStartDates[userId] = val;
+  window.saveUserStartDates(APP.userStartDates);
+  const uName = APP.users.find(u => u.id === userId)?.name || userId;
+  window.appendAuditEntry('SET_START_DATE', val, '-', userId, uName, 'Admin');
+  closeEditStartDateModal();
+  renderApp();
+  window.showToast(`Fecha de incorporación actualizada: ${uName} → ${val}`, 'success');
+};
+
+window.resetStartDate = function(userId) {
+  if (!APP.isAdmin) { window.showToast('🔒 Requiere modo Administrador.', 'warning'); return; }
+  const uName = APP.users.find(u => u.id === userId)?.name || userId;
+  if (!confirm(`¿Restablecer la fecha de incorporación de ${uName} al valor de users.json?`)) return;
+  if (APP.userStartDates) delete APP.userStartDates[userId];
+  window.saveUserStartDates(APP.userStartDates || {});
+  window.appendAuditEntry('RESET_START_DATE', '-', '-', userId, uName, 'Admin');
+  renderApp();
+  window.showToast(`Fecha restablecida para ${uName}.`, 'info');
+};
+
+window.closeEditStartDateModal = function() {
+  const m = document.getElementById('modal-startdate');
+  if (m) m.classList.add('hidden');
 };
 
 // ─── ADMIN ───────────────────────────────────────────────────

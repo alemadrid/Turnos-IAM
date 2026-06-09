@@ -99,6 +99,12 @@ function calcAccumulatedHours(userId, joinDate2026Str, schedule) {
   return { preHours, turnHours, total: preHours + turnHours };
 }
 
+// Horas netas por turno trabajado (9h – 1h comida)
+const HOURS_NET_PER_SHIFT = 8;
+
+// Fecha límite del período de incorporación (inclusive)
+const ONBOARDING_END_DATE = '2026-07-06';
+
 /**
  * Genera el informe de equidad + horas anuales por técnico.
  */
@@ -230,4 +236,87 @@ window.exportScheduleCSV = function(schedule, users) {
   });
   window.exportToCSV(rows, 'cuadrante_planturnos');
   window.showToast('Cuadrante exportado correctamente.', 'success');
+};
+
+/**
+ * Genera el informe de horas del período de incorporación.
+ * Para cada técnico calcula:
+ *   - fechaInicio: override de localStorage || joinDate (si ≥ 2026-01-01) || 2026-01-01
+ *   - fechaFin: 2026-07-06 (fija)
+ *   - targetDays: días laborables (lun–vie, sin cierres) en ese rango
+ *   - targetHours: targetDays × 8h (turno 9h − 1h comida)
+ *   - workedDays: días que el técnico aparece en el cuadrante dentro del rango
+ *   - workedHours: workedDays × 8h
+ *   - diff: workedHours − targetHours
+ */
+window.generateOnboardingReport = function(users, schedule, holidays, userStartDates) {
+  const endDate = window.parseLocalDate(ONBOARDING_END_DATE);
+
+  return users.map(u => {
+    // Fecha de inicio efectiva
+    let startStr = (userStartDates && userStartDates[u.id]) || u.joinDate || '2026-01-01';
+    if (startStr < '2026-01-01') startStr = '2026-01-01';
+
+    const startDate = window.parseLocalDate(startStr);
+
+    // Si el técnico empieza después del límite, nada que computar
+    if (startDate > endDate) {
+      return { id: u.id, name: u.name, startDate: startStr,
+               targetDays: 0, targetHours: 0, workedDays: 0, workedHours: 0, diff: 0 };
+    }
+
+    // Días laborables objetivo en el rango (lun–vie, sin cierres totales)
+    let targetDays = 0;
+    const cur = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
+    while (cur <= endDate) {
+      const dow = cur.getDay();
+      if (dow !== 0 && dow !== 6) {
+        const ds = window.formatDateLocal(cur);
+        const hType = window.getHolidayType(ds, holidays);
+        if (hType !== 'closure') targetDays++;
+      }
+      cur.setDate(cur.getDate() + 1);
+    }
+
+    // Días realmente asignados en el cuadrante dentro del rango
+    let workedDays = 0;
+    Object.entries(schedule).forEach(([dateStr, day]) => {
+      if (dateStr < startStr || dateStr > ONBOARDING_END_DATE) return;
+      if (day.closed) return;
+      if ((day.morning || []).includes(u.id) || (day.afternoon || []).includes(u.id)) {
+        workedDays++;
+      }
+    });
+
+    const targetHours = targetDays * HOURS_NET_PER_SHIFT;
+    const workedHours = workedDays * HOURS_NET_PER_SHIFT;
+
+    return {
+      id: u.id,
+      name: u.name,
+      startDate: startStr,
+      targetDays,
+      targetHours,
+      workedDays,
+      workedHours,
+      diff: workedHours - targetHours
+    };
+  });
+};
+
+/**
+ * Exporta el informe de incorporación como CSV.
+ */
+window.exportOnboardingReportCSV = function(users, schedule, holidays, userStartDates) {
+  const rows = window.generateOnboardingReport(users, schedule, holidays, userStartDates).map(m => ({
+    'Técnico':            m.name,
+    'Fecha Incorporación':m.startDate,
+    'Días Objetivo':      m.targetDays,
+    'Horas Objetivo (8h/día)': m.targetHours,
+    'Días Cuadrante':     m.workedDays,
+    'Horas Cuadrante':    m.workedHours,
+    'Diferencia h':       m.diff
+  }));
+  window.exportToCSV(rows, 'informe_incorporacion_planturnos');
+  window.showToast('Informe de incorporación exportado.', 'success');
 };
