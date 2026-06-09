@@ -146,6 +146,7 @@ window.clearAllLocalData = function() {
   localStorage.removeItem(STORAGE_KEYS.VACATIONS);
   localStorage.removeItem(STORAGE_KEYS.AUDIT_TRAIL);
   localStorage.removeItem('planturnos_startdates_2026');
+  localStorage.removeItem('planturnos_joinDates_2026');
   window.showToast('Datos locales eliminados. Recarga la página.', 'warning');
 };
 

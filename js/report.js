@@ -112,15 +112,18 @@ window.generateEquityReport = function(users, schedule, vacations, holidays) {
   const metrics = {};
 
   users.forEach(u => {
+    const effectiveStart = (typeof window.getEffectiveStartDate === 'function')
+      ? window.getEffectiveStartDate(u.id)
+      : (u.joinDate2026 || u.joinDate || '2026-01-01');
     metrics[u.id] = {
       id:               u.id,
       name:             u.name,
-      joinDate2026:     u.joinDate2026 || '2026-01-01',
+      joinDate2026:     effectiveStart,
       morningDays:      0,
       afternoonDays:    0,
       vacationDays:     window.getVacationDaysUsed(u.id, vacations),
       totalWorked:      0,
-      hoursProportional: calcProportionalHours(u.joinDate2026),
+      hoursProportional: calcProportionalHours(effectiveStart),
       hoursPreTurns:    0,
       hoursTurns:       0,
       hoursTotal:       0,
@@ -142,7 +145,7 @@ window.generateEquityReport = function(users, schedule, vacations, holidays) {
     m.totalWorked = m.morningDays + m.afternoonDays;
 
     // Horas acumuladas reales
-    const acc       = calcAccumulatedHours(u.id, u.joinDate2026, schedule);
+    const acc       = calcAccumulatedHours(u.id, m.joinDate2026, schedule);
     m.hoursPreTurns = acc.preHours;
     m.hoursTurns    = acc.turnHours;
     m.hoursTotal    = acc.total;
@@ -254,7 +257,9 @@ window.generateOnboardingReport = function(users, schedule, holidays, userStartD
 
   return users.map(u => {
     // Fecha de inicio efectiva
-    let startStr = (userStartDates && userStartDates[u.id]) || u.joinDate || '2026-01-01';
+    let startStr = (typeof window.getEffectiveStartDate === 'function')
+      ? window.getEffectiveStartDate(u.id)
+      : ((userStartDates && userStartDates[u.id]) || u.joinDate2026 || u.joinDate || '2026-01-01');
     if (startStr < '2026-01-01') startStr = '2026-01-01';
 
     const startDate = window.parseLocalDate(startStr);

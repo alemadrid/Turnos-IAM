@@ -63,7 +63,11 @@ function loadOperationalData() {
   try {
     const stored = JSON.parse(localStorage.getItem('planturnos_joinDates_2026') || '{}');
     APP.users.forEach(u => {
-      if (stored[u.id]) u.joinDate2026 = stored[u.id];
+      const unified = (APP.userStartDates && APP.userStartDates[u.id]) || stored[u.id];
+      if (unified) {
+        u.joinDate2026 = unified;
+        APP.userStartDates[u.id] = unified;
+      }
     });
   } catch (e) { /* silencioso */ }
 }
@@ -76,7 +80,9 @@ function loadOperationalData() {
 window.getEffectiveStartDate = function(userId) {
   if (APP.userStartDates && APP.userStartDates[userId]) return APP.userStartDates[userId];
   const u = APP.users.find(x => x.id === userId);
-  if (!u || !u.joinDate) return '2026-01-01';
+  if (!u) return '2026-01-01';
+  if (u.joinDate2026) return u.joinDate2026;
+  if (!u.joinDate) return '2026-01-01';
   return u.joinDate >= '2026-01-01' ? u.joinDate : '2026-01-01';
 };
 
@@ -787,6 +793,11 @@ window.saveJoinDate = function(userId) {
   const u = APP.users.find(x => x.id === userId);
   if (!u) return;
   u.joinDate2026 = val;
+
+  if (!APP.userStartDates) APP.userStartDates = {};
+  APP.userStartDates[userId] = val;
+  window.saveUserStartDates(APP.userStartDates);
+
   // Guardar en localStorage para persistencia (solo joinDate2026, no el perfil)
   const stored = JSON.parse(localStorage.getItem('planturnos_joinDates_2026') || '{}');
   stored[userId] = val;
@@ -841,7 +852,8 @@ function renderSettingsView() {
     <section class="section-card">
       <h2 class="section-title">📅 Fechas de Incorporación</h2>
       <p class="section-desc">
-        Fecha de inicio de cómputo de cada técnico para el <strong>período hasta el 6 de julio de 2026</strong>
+        Fecha de inicio de cómputo de cada técnico para <strong>todo 2026</strong>.
+        Este mismo campo se usa para el cálculo <strong>anual proporcional</strong> y para el período hasta el <strong>6 de julio</strong>
         (turno 9h − 1h comida = 8h efectivas/día).
         Si la fecha en <code>users.json</code> es anterior a 2026, el sistema usa <code>2026-01-01</code> por defecto.
         ${!APP.isAdmin ? '<br><span style="opacity:.7">Activa el modo Administrador para editar.</span>' : ''}
@@ -899,12 +911,13 @@ window.openEditStartDateModal = function(userId) {
     <h3 class="modal-title">Fecha de Incorporación</h3>
     <p class="modal-desc" style="color:var(--accent);font-weight:600">${user.name}</p>
     <p class="modal-desc" style="font-size:.82rem;opacity:.8">
-      Establece la fecha desde la que se computarán las 8h efectivas/día hasta el 6 de julio de 2026.
+      Esta fecha determina el cómputo de horas de 2026 (proporcional anual)
+      y también el cálculo del período hasta el 6 de julio.
     </p>
     <div class="form-row">
       <label>Fecha de inicio (YYYY-MM-DD)</label>
       <input type="date" id="startdate-input"
-             min="2026-01-01" max="2026-07-06" value="${current}">
+             min="2026-01-01" max="2026-12-31" value="${current}">
     </div>
     <div class="modal-actions">
       <button class="btn-ghost" onclick="closeEditStartDateModal()">Cancelar</button>
@@ -918,13 +931,22 @@ window.saveStartDateEdit = function(userId) {
   const input = document.getElementById('startdate-input');
   if (!input) return;
   const val = input.value;
-  if (!val || val < '2026-01-01' || val > '2026-07-06') {
-    window.showToast('Fecha inválida. Debe estar entre 2026-01-01 y 2026-07-06.', 'warning');
+  if (!val || val < '2026-01-01' || val > '2026-12-31') {
+    window.showToast('Fecha inválida. Debe estar entre 2026-01-01 y 2026-12-31.', 'warning');
     return;
   }
+
+  // Campo unificado de fecha de incorporación para todo el sistema.
   if (!APP.userStartDates) APP.userStartDates = {};
   APP.userStartDates[userId] = val;
   window.saveUserStartDates(APP.userStartDates);
+
+  const u = APP.users.find(x => x.id === userId);
+  if (u) u.joinDate2026 = val;
+  const stored = JSON.parse(localStorage.getItem('planturnos_joinDates_2026') || '{}');
+  stored[userId] = val;
+  localStorage.setItem('planturnos_joinDates_2026', JSON.stringify(stored));
+
   const uName = APP.users.find(u => u.id === userId)?.name || userId;
   window.appendAuditEntry('SET_START_DATE', val, '-', userId, uName, 'Admin');
   closeEditStartDateModal();
@@ -938,6 +960,13 @@ window.resetStartDate = function(userId) {
   if (!confirm(`¿Restablecer la fecha de incorporación de ${uName} al valor de users.json?`)) return;
   if (APP.userStartDates) delete APP.userStartDates[userId];
   window.saveUserStartDates(APP.userStartDates || {});
+
+  const stored = JSON.parse(localStorage.getItem('planturnos_joinDates_2026') || '{}');
+  delete stored[userId];
+  localStorage.setItem('planturnos_joinDates_2026', JSON.stringify(stored));
+  const u = APP.users.find(x => x.id === userId);
+  if (u) delete u.joinDate2026;
+
   window.appendAuditEntry('RESET_START_DATE', '-', '-', userId, uName, 'Admin');
   renderApp();
   window.showToast(`Fecha restablecida para ${uName}.`, 'info');
