@@ -47,18 +47,24 @@ function countWorkdays(startStr, endStr) {
  * Basado en su joinDate2026 (fecha de alta en 2026) y el total de
  * días laborables del año (261).
  */
-function calcProportionalHours(joinDate2026Str) {
+/**
+ * @param {string}  joinDate2026Str  - fecha YYYY-MM-DD de incorporación
+ * @param {number}  [annualLimit]    - límite individual (si no se pasa, usa HOURS_ANNUAL_LIMIT)
+ */
+function calcProportionalHours(joinDate2026Str, annualLimit) {
+  const limit = (annualLimit && annualLimit > 0) ? annualLimit : HOURS_ANNUAL_LIMIT;
+  const ratio = limit / WORKDAYS_2026;  // h proporcional por día laborable
   const YEAR_START = '2026-01-01';
   const YEAR_END   = '2026-12-31';
 
   // Si no tiene joinDate2026 o es anterior/igual a 1 ene → año completo
   if (!joinDate2026Str || joinDate2026Str <= YEAR_START) {
-    return HOURS_ANNUAL_LIMIT;
+    return limit;
   }
   if (joinDate2026Str > YEAR_END) return 0;
 
   const dias = countWorkdays(joinDate2026Str, YEAR_END);
-  return Math.round(dias * HOURS_PER_WORKDAY_RATIO);
+  return Math.round(dias * ratio);
 }
 
 /**
@@ -70,6 +76,11 @@ function calcAccumulatedHours(userId, joinDate2026Str, schedule) {
   const YEAR_START  = '2026-01-01';
   const PRE_END     = '2026-07-05'; // último día antes de turnos
   const TURNS_START_D = window.parseLocalDate(TURNS_START);
+
+  // Horas efectivas por turno: de APP.shifts si está configurado, o fallback 8h
+  const shiftCfg   = (typeof APP !== 'undefined' && APP.shifts) || null;
+  const mEffective = (shiftCfg?.morning?.hours   > 0) ? shiftCfg.morning.hours   - 1 : HOURS_EFFECTIVE_PER_SHIFT;
+  const aEffective = (shiftCfg?.afternoon?.hours > 0) ? shiftCfg.afternoon.hours - 1 : HOURS_EFFECTIVE_PER_SHIFT;
 
   // Fecha efectiva de alta en 2026
   const effectiveStart = (!joinDate2026Str || joinDate2026Str <= YEAR_START)
@@ -85,15 +96,17 @@ function calcAccumulatedHours(userId, joinDate2026Str, schedule) {
   }
 
   // ── Periodo B: turnos del cuadrante ─────────────────────────
+  // Diferencia mañana/tarde para reflejar las horas configuradas en cada turno
   let turnHours = 0;
   Object.entries(schedule).forEach(([dateStr, day]) => {
     if (day.closed) return;
     const d = window.parseLocalDate(dateStr);
     if (d < TURNS_START_D) return; // solo días de turnos
     if (dateStr < effectiveStart) return; // antes del alta del técnico
-    const isInShift = (day.morning || []).includes(userId) ||
-                      (day.afternoon || []).includes(userId);
-    if (isInShift) turnHours += HOURS_EFFECTIVE_PER_SHIFT;
+    const inMorning   = (day.morning   || []).includes(userId);
+    const inAfternoon = (day.afternoon || []).includes(userId);
+    if (inMorning)   turnHours += mEffective;
+    if (inAfternoon) turnHours += aEffective;
   });
 
   return { preHours, turnHours, total: preHours + turnHours };
@@ -115,6 +128,10 @@ window.generateEquityReport = function(users, schedule, vacations, holidays) {
     const effectiveStart = (typeof window.getEffectiveStartDate === 'function')
       ? window.getEffectiveStartDate(u.id)
       : (u.joinDate2026 || u.joinDate || '2026-01-01');
+    // Límite individual: de APP.userHoursLimits si existe, si no el global
+    const userLimit = (typeof APP !== 'undefined' && APP.userHoursLimits && APP.userHoursLimits[u.id])
+      ? parseInt(APP.userHoursLimits[u.id])
+      : HOURS_ANNUAL_LIMIT;
     metrics[u.id] = {
       id:               u.id,
       name:             u.name,
@@ -123,7 +140,7 @@ window.generateEquityReport = function(users, schedule, vacations, holidays) {
       afternoonDays:    0,
       vacationDays:     window.getVacationDaysUsed(u.id, vacations),
       totalWorked:      0,
-      hoursProportional: calcProportionalHours(effectiveStart),
+      hoursProportional: calcProportionalHours(effectiveStart, userLimit),
       hoursPreTurns:    0,
       hoursTurns:       0,
       hoursTotal:       0,

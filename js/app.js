@@ -7,15 +7,17 @@
 // ============================================================
 
 window.APP = {
-  config:         null,
-  users:          [],
-  holidays:       {},
-  schedule:       {},
-  vacations:      {},
-  auditTrail:     [],
-  userStartDates: {},   // overrides de fecha de inicio por técnico
-  isAdmin:        false,
-  currentView:    'dashboard'
+  config:          null,
+  users:           [],
+  holidays:        {},
+  schedule:        {},
+  vacations:       {},
+  auditTrail:      [],
+  userStartDates:  {},   // overrides de fecha de inicio por técnico
+  userHoursLimits: {},   // límites de horas anuales por técnico
+  shifts:          null, // horarios de turno configurables
+  isAdmin:         false,
+  currentView:     'dashboard'
 };
 
 // ─── Init ────────────────────────────────────────────────────
@@ -40,26 +42,65 @@ document.addEventListener('DOMContentLoaded', async function() {
 // Antídoto #1: cache-busting. Antídoto #2: NUNCA guardar config en localStorage.
 async function loadStaticData() {
   const ts = Date.now();
-  const [cfgRes, usersRes, holidaysRes] = await Promise.all([
-    fetch(`data/config.json?v=${ts}`),
-    fetch(`data/users.json?v=${ts}`),
-    fetch(`data/holidays.json?v=${ts}`)
-  ]);
+  const [cfgRes, usersRes, holidaysRes, vacRes, schedRes, startDatesRes, hoursLimitsRes, shiftsRes] =
+    await Promise.all([
+      fetch(`data/config.json?v=${ts}`),
+      fetch(`data/users.json?v=${ts}`),
+      fetch(`data/holidays.json?v=${ts}`),
+      fetch(`data/vacations.json?v=${ts}`),
+      fetch(`data/schedule.json?v=${ts}`),
+      fetch(`data/userStartDates.json?v=${ts}`),
+      fetch(`data/userHoursLimits.json?v=${ts}`),
+      fetch(`data/shifts.json?v=${ts}`)
+    ]);
   if (!cfgRes.ok)      throw new Error('No se pudo cargar config.json');
   if (!usersRes.ok)    throw new Error('No se pudo cargar users.json');
   if (!holidaysRes.ok) throw new Error('No se pudo cargar holidays.json');
   APP.config   = await cfgRes.json();
   APP.users    = await usersRes.json();
   APP.holidays = await holidaysRes.json();
+
+  // Datos operativos remotos (fuente de verdad compartida vía GitHub sync)
+  // Guardados en APP._remote* para usarse como fallback en loadOperationalData
+  const safeJson = async (res) => { try { return res.ok ? await res.json() : {}; } catch { return {}; } };
+  APP._remoteVacations   = await safeJson(vacRes);
+  APP._remoteSchedule    = await safeJson(schedRes);
+  APP._remoteStartDates  = await safeJson(startDatesRes);
+  APP._remoteHoursLimits = await safeJson(hoursLimitsRes);
+  const remoteShiftsRaw  = await safeJson(shiftsRes);
+  APP._remoteShifts      = remoteShiftsRaw && Object.keys(remoteShiftsRaw).length ? remoteShiftsRaw : null;
 }
 
 function loadOperationalData() {
-  APP.schedule        = window.loadScheduleLocal();
-  APP.vacations       = window.loadVacationsLocal();
-  APP.auditTrail      = window.loadAuditTrail();
-  APP.userStartDates  = window.loadUserStartDates();
+  const localVac    = window.loadVacationsLocal();
+  const localSched  = window.loadScheduleLocal();
+  const localStart  = window.loadUserStartDates();
+  const localLimits = window.loadUserHoursLimits();
+  const localShifts = window.loadShiftsLocal();
 
-  // Compatibilidad: mantener alta 2026 usada por el informe proporcional
+  // Prioridad: localStorage (sesión del admin) > datos remotos (GitHub Pages)
+  // Los técnicos (sin localStorage) verán siempre los datos remotos sincronizados.
+  APP.vacations      = Object.keys(localVac).length    ? localVac    : (APP._remoteVacations   || {});
+  APP.schedule       = Object.keys(localSched).length  ? localSched  : (APP._remoteSchedule    || {});
+  APP.userStartDates = Object.keys(localStart).length  ? localStart  : (APP._remoteStartDates  || {});
+  APP.userHoursLimits= Object.keys(localLimits).length ? localLimits : (APP._remoteHoursLimits || {});
+  APP.shifts         = localShifts || APP._remoteShifts || APP.config?.shifts ||
+    { morning: { start: '08:00', end: '17:00', hours: 9 }, afternoon: { start: '15:00', end: '24:00', hours: 9 } };
+
+  APP.auditTrail     = window.loadAuditTrail();
+
+  // Si los datos remotos tenían datos y localStorage estaba vacío,
+  // persistirlos en localStorage para la sesión actual
+  if (!Object.keys(localVac).length   && Object.keys(APP.vacations).length)
+    window.saveVacationsLocal(APP.vacations);
+  if (!Object.keys(localSched).length  && Object.keys(APP.schedule).length)
+    window.saveScheduleLocal(APP.schedule);
+  if (!Object.keys(localStart).length  && Object.keys(APP.userStartDates).length)
+    window.saveUserStartDates(APP.userStartDates);
+  if (!Object.keys(localLimits).length && Object.keys(APP.userHoursLimits).length)
+    window.saveUserHoursLimits(APP.userHoursLimits);
+
+  // Compatibilidad: sincronizar joinDate2026 con el campo unificado
   try {
     const stored = JSON.parse(localStorage.getItem('planturnos_joinDates_2026') || '{}');
     APP.users.forEach(u => {
@@ -457,6 +498,7 @@ window.executeAutoGenerate = function() {
   else Object.assign(APP.schedule, schedule);
   window.saveScheduleLocal(APP.schedule);
   window.appendAuditEntry('AUTO_GENERATE', `${startStr}→${endStr}`, 'all', null, null, 'Admin');
+  window.syncAllToGitHub(true);
   closeGeneratorModal();
   const n = Object.keys(schedule).length;
   let msg = `✅ Cuadrante generado: ${n} días laborables.`;
@@ -509,6 +551,7 @@ window.saveDayEdits = function(dateStr) {
   }
   window.saveScheduleLocal(APP.schedule);
   window.appendAuditEntry('MANUAL_EDIT', dateStr, 'all', null, null, 'Admin');
+  window.syncAllToGitHub(true);
   closeEditDayModal();
   const wrap = document.getElementById('schedule-calendar-wrap');
   if (wrap) { wrap.innerHTML = renderCalendar(window._scheduleYear, window._scheduleMonth); requestAnimationFrame(setupTooltips); }
@@ -632,6 +675,7 @@ window.saveVacation = function(userId) {
   window.saveVacationsLocal(APP.vacations);
   const uName = APP.users.find(u => u.id === userId)?.name || userId;
   window.appendAuditEntry('ADD_VACATION', `${startStr}→${endStr}`, '-', userId, uName, 'Admin');
+  window.syncAllToGitHub(true);
   closeAddVacModal();
   renderApp();
   window.showToast(`Vacaciones añadidas para ${uName}.`, 'success');
@@ -641,6 +685,7 @@ window.deleteVacation = function(userId, index) {
   if (!confirm('¿Eliminar este periodo vacacional?')) return;
   APP.vacations[userId].splice(index, 1);
   window.saveVacationsLocal(APP.vacations);
+  window.syncAllToGitHub(true);
   renderApp();
   window.showToast('Periodo eliminado.', 'warning');
 };
@@ -831,6 +876,7 @@ window.saveJoinDate = function(userId) {
   stored[userId] = val;
   localStorage.setItem('planturnos_joinDates_2026', JSON.stringify(stored));
   window.appendAuditEntry('SET_JOIN_DATE_2026', val, '-', userId, u.name, 'Admin');
+  window.syncAllToGitHub(true);
   closeJoinDateModal();
   renderApp();
   window.showToast(`Fecha de alta actualizada para ${u.name}.`, 'success');
@@ -843,21 +889,28 @@ window.closeJoinDateModal = function() {
 
 // ─── SETTINGS VIEW ───────────────────────────────────────────
 function renderSettingsView() {
-  // Tabla de fechas de incorporación (siempre visible; edición solo en admin)
+  const shifts = APP.shifts || APP.config?.shifts ||
+    { morning: { start: '08:00', end: '17:00', hours: 9 }, afternoon: { start: '15:00', end: '24:00', hours: 9 } };
+
+  const ghToken  = window.getGHToken ? window.getGHToken() : '';
+  const ghRepo   = window.getGHRepo  ? window.getGHRepo()  : 'alemadrid/Turnos-IAM';
+  const syncBadge = ghToken
+    ? `<span style="color:var(--green);font-size:.75rem;margin-left:8px">✓ Token configurado</span>`
+    : `<span style="color:var(--orange);font-size:.75rem;margin-left:8px">⚠ Sin token — datos solo locales</span>`;
+
+  // Tabla de fechas de incorporación
   const startDateRows = APP.users.map(u => {
-    const effStart  = window.getEffectiveStartDate(u.id);
+    const effStart   = window.getEffectiveStartDate(u.id);
     const isOverride = APP.userStartDates && APP.userStartDates[u.id];
     const badge = isOverride
       ? `<span class="audit-tag" style="background:var(--accent-dim);color:var(--accent)">editada</span>`
       : `<span class="audit-tag" style="background:var(--bg-4);color:var(--text-muted)">por defecto</span>`;
     const editBtn = APP.isAdmin
       ? `<button class="btn-add" style="font-size:.75rem;padding:2px 10px"
-               onclick="openEditStartDateModal(${u.id})">Editar</button>`
-      : '';
+               onclick="openEditStartDateModal(${u.id})">Editar</button>` : '';
     const resetBtn = (APP.isAdmin && isOverride)
       ? `<button class="btn-del" style="font-size:.75rem;padding:2px 8px;margin-left:4px"
-               onclick="resetStartDate(${u.id})" title="Restablecer al valor de users.json">✕</button>`
-      : '';
+               onclick="resetStartDate(${u.id})" title="Restablecer">✕</button>` : '';
     return `<tr>
       <td>${u.name}</td>
       <td class="mono">${u.joinDate || '—'}</td>
@@ -867,23 +920,71 @@ function renderSettingsView() {
     </tr>`;
   }).join('');
 
+  // Tabla de límites de horas anuales
+  const hoursRows = APP.users.map(u => {
+    const limit = (APP.userHoursLimits && APP.userHoursLimits[u.id]) || 1782;
+    return `<tr>
+      <td>${u.name}</td>
+      <td>${u.profile}</td>
+      <td><input type="number" class="hours-limit-input" data-uid="${u.id}"
+                 value="${limit}" min="100" max="3000"
+                 style="width:90px;background:var(--bg-4);border:1px solid var(--border);
+                        color:var(--text);padding:3px 8px;border-radius:4px"
+                 ${!APP.isAdmin ? 'disabled' : ''}></td>
+    </tr>`;
+  }).join('');
+
   return `
-    <div class="view-header"><h1 class="view-title">Configuración y Datos</h1><p class="view-sub">Backup, restauración y ajustes</p></div>
+    <div class="view-header"><h1 class="view-title">Configuración y Datos</h1>
+      <p class="view-sub">Backup, restauración y ajustes</p></div>
+
+    <section class="section-card">
+      <h2 class="section-title">🔗 Sincronización GitHub ${syncBadge}</h2>
+      <p class="section-desc">
+        Conecta con el repositorio para que <strong>vacaciones, cuadrantes y configuraciones
+        sean visibles desde cualquier navegador</strong>.<br>
+        Necesitas un <a href="https://github.com/settings/tokens/new?scopes=repo&description=Turnos-IAM"
+          target="_blank" style="color:var(--accent)">Personal Access Token (PAT)</a>
+        con permiso <code>Contents: Write</code> en el repo <code>${ghRepo}</code>.<br>
+        El token se guarda solo en este navegador y nunca se transmite a terceros.
+        ${!APP.isAdmin ? '<br><span style="opacity:.7">Activa el modo Administrador para configurar.</span>' : ''}
+      </p>
+      ${APP.isAdmin ? `
+      <div class="form-row">
+        <label>Token de acceso (PAT)</label>
+        <input type="password" id="gh-token-input" autocomplete="off" style="max-width:380px"
+               placeholder="${ghToken ? '••••••••••••••••  (token ya guardado)' : 'github_pat_...'}">
+        <span style="font-size:.72rem;color:var(--text-muted);margin-top:3px;display:block">
+          Escribe un nuevo token para reemplazarlo, o déjalo vacío y guarda para eliminarlo.
+        </span>
+      </div>
+      <div class="form-row">
+        <label>Repositorio</label>
+        <input type="text" id="gh-repo-input" value="${ghRepo}" style="max-width:280px">
+      </div>
+      <div class="toolbar">
+        <button class="btn-primary" onclick="saveGHConfig()">💾 Guardar configuración</button>
+        <button class="btn-secondary" onclick="window.syncAllToGitHub(false)">🔄 Sincronizar ahora</button>
+      </div>` : ''}
+    </section>
+
     <section class="section-card">
       <h2 class="section-title">Backup de Datos</h2>
       <p class="section-desc">Exporta o restaura datos operativos. Las credenciales nunca se almacenan localmente.</p>
       <div class="toolbar">
         <button class="btn-primary" onclick="window.exportBackup()">⬇ Exportar Backup JSON</button>
-        <label class="btn-secondary file-btn">⬆ Importar Backup<input type="file" accept=".json" onchange="handleImportBackup(event)" style="display:none"></label>
+        <label class="btn-secondary file-btn">⬆ Importar Backup
+          <input type="file" accept=".json" onchange="handleImportBackup(event)" style="display:none">
+        </label>
       </div>
     </section>
+
     <section class="section-card">
       <h2 class="section-title">📅 Fechas de Incorporación</h2>
       <p class="section-desc">
         Fecha de inicio de cómputo de cada técnico para <strong>todo 2026</strong>.
-        Este mismo campo se usa para el cálculo <strong>anual proporcional</strong> y para el período hasta el <strong>6 de julio</strong>
-        (turno 9h − 1h comida = 8h efectivas/día).
-        Si la fecha en <code>users.json</code> es anterior a 2026, el sistema usa <code>2026-01-01</code> por defecto.
+        Este campo determina el cálculo <strong>anual proporcional</strong>
+        y el período hasta el <strong>6 de julio</strong>.
         ${!APP.isAdmin ? '<br><span style="opacity:.7">Activa el modo Administrador para editar.</span>' : ''}
       </p>
       <div class="table-wrap"><table class="data-table">
@@ -891,6 +992,68 @@ function renderSettingsView() {
         <tbody>${startDateRows}</tbody>
       </table></div>
     </section>
+
+    <section class="section-card">
+      <h2 class="section-title">⏱ Límite de Horas Anuales por Técnico</h2>
+      <p class="section-desc">
+        Máximo de horas anuales de trabajo efectivo por técnico.
+        Por defecto <strong>1.782h</strong>. Cambia el valor para ajustarlo a cada caso.
+        ${!APP.isAdmin ? '<br><span style="opacity:.7">Activa el modo Administrador para editar.</span>' : ''}
+      </p>
+      <div class="table-wrap"><table class="data-table">
+        <thead><tr><th>Técnico</th><th>Perfil</th><th>Límite anual (h)</th></tr></thead>
+        <tbody>${hoursRows}</tbody>
+      </table></div>
+      ${APP.isAdmin ? `<div class="toolbar" style="margin-top:12px">
+        <button class="btn-primary" onclick="saveHoursLimits()">💾 Guardar límites</button>
+      </div>` : ''}
+    </section>
+
+    <section class="section-card">
+      <h2 class="section-title">🕐 Horarios de Turno</h2>
+      <p class="section-desc">
+        Horas presenciales de cada turno. <strong>Horas efectivas = presenciales − 1h descanso</strong>.
+        Reducir las horas ajusta el cómputo anual en los informes.
+        ${!APP.isAdmin ? '<br><span style="opacity:.7">Activa el modo Administrador para editar.</span>' : ''}
+      </p>
+      <div class="table-wrap"><table class="data-table">
+        <thead><tr><th>Turno</th><th>Inicio</th><th>Fin</th><th>Horas presenciales</th><th>Horas efectivas</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><span style="color:var(--morning-col)">☀ Mañana</span></td>
+            <td><input type="time" id="shift-m-start" value="${shifts.morning.start}"
+                 style="background:var(--bg-4);border:1px solid var(--border);color:var(--text);padding:3px 8px;border-radius:4px"
+                 ${!APP.isAdmin ? 'disabled' : ''}></td>
+            <td><input type="time" id="shift-m-end" value="${shifts.morning.end}"
+                 style="background:var(--bg-4);border:1px solid var(--border);color:var(--text);padding:3px 8px;border-radius:4px"
+                 ${!APP.isAdmin ? 'disabled' : ''}></td>
+            <td><input type="number" id="shift-m-hours" value="${shifts.morning.hours}" min="1" max="16"
+                 oninput="document.getElementById('shift-m-eff').textContent=(+this.value-1)+'h ef.'"
+                 style="width:65px;background:var(--bg-4);border:1px solid var(--border);color:var(--text);padding:3px 8px;border-radius:4px"
+                 ${!APP.isAdmin ? 'disabled' : ''}></td>
+            <td id="shift-m-eff" style="color:var(--green);font-family:var(--font-mono)">${shifts.morning.hours - 1}h ef.</td>
+          </tr>
+          <tr>
+            <td><span style="color:var(--afternoon-col)">🌙 Tarde</span></td>
+            <td><input type="time" id="shift-a-start" value="${shifts.afternoon.start}"
+                 style="background:var(--bg-4);border:1px solid var(--border);color:var(--text);padding:3px 8px;border-radius:4px"
+                 ${!APP.isAdmin ? 'disabled' : ''}></td>
+            <td><input type="time" id="shift-a-end" value="${shifts.afternoon.end}"
+                 style="background:var(--bg-4);border:1px solid var(--border);color:var(--text);padding:3px 8px;border-radius:4px"
+                 ${!APP.isAdmin ? 'disabled' : ''}></td>
+            <td><input type="number" id="shift-a-hours" value="${shifts.afternoon.hours}" min="1" max="16"
+                 oninput="document.getElementById('shift-a-eff').textContent=(+this.value-1)+'h ef.'"
+                 style="width:65px;background:var(--bg-4);border:1px solid var(--border);color:var(--text);padding:3px 8px;border-radius:4px"
+                 ${!APP.isAdmin ? 'disabled' : ''}></td>
+            <td id="shift-a-eff" style="color:var(--green);font-family:var(--font-mono)">${shifts.afternoon.hours - 1}h ef.</td>
+          </tr>
+        </tbody>
+      </table></div>
+      ${APP.isAdmin ? `<div class="toolbar" style="margin-top:12px">
+        <button class="btn-primary" onclick="saveShiftConfig()">💾 Guardar horarios</button>
+      </div>` : ''}
+    </section>
+
     <section class="section-card">
       <h2 class="section-title">Leyenda de Festivos</h2>
       <div class="legend-grid">
@@ -923,8 +1086,71 @@ window.confirmClearData = function() {
   if (confirm('⚠ ¿Eliminar TODOS los datos locales?')) {
     window.clearAllLocalData();
     APP.schedule={}; APP.vacations={}; APP.auditTrail=[]; APP.userStartDates={};
+    APP.userHoursLimits={}; APP.shifts=null;
     renderApp();
   }
+};
+
+window.saveGHConfig = function() {
+  if (!APP.isAdmin) { window.showToast('🔒 Requiere modo Administrador.', 'warning'); return; }
+  const tokenInput = document.getElementById('gh-token-input');
+  const repoInput  = document.getElementById('gh-repo-input');
+  if (!tokenInput || !repoInput) return;
+  const newToken = tokenInput.value.trim();
+  const newRepo  = repoInput.value.trim() || 'alemadrid/Turnos-IAM';
+  if (newToken) {
+    window.setGHToken(newToken);
+  } else if (newToken === '') {
+    // Campo vacío y sin placeholder → eliminar token existente
+    if (!window.getGHToken() || confirm('¿Eliminar el token de GitHub guardado?')) {
+      window.setGHToken('');
+    }
+  }
+  window.setGHRepo(newRepo);
+  renderApp();
+  window.showToast('✓ Configuración GitHub guardada.', 'success');
+};
+
+window.saveHoursLimits = function() {
+  if (!APP.isAdmin) { window.showToast('🔒 Requiere modo Administrador.', 'warning'); return; }
+  document.querySelectorAll('.hours-limit-input').forEach(inp => {
+    const uid = parseInt(inp.dataset.uid);
+    const val = parseInt(inp.value);
+    if (!isNaN(uid) && !isNaN(val) && val > 0) {
+      APP.userHoursLimits[uid] = val;
+    }
+  });
+  window.saveUserHoursLimits(APP.userHoursLimits);
+  window.syncAllToGitHub(true);
+  window.showToast('✓ Límites de horas guardados y sincronizados.', 'success');
+};
+
+window.saveShiftConfig = function() {
+  if (!APP.isAdmin) { window.showToast('🔒 Requiere modo Administrador.', 'warning'); return; }
+  const mStart = document.getElementById('shift-m-start')?.value;
+  const mEnd   = document.getElementById('shift-m-end')?.value;
+  const mHours = parseInt(document.getElementById('shift-m-hours')?.value);
+  const aStart = document.getElementById('shift-a-start')?.value;
+  const aEnd   = document.getElementById('shift-a-end')?.value;
+  const aHours = parseInt(document.getElementById('shift-a-hours')?.value);
+  if (!mStart || !mEnd || !aStart || !aEnd || isNaN(mHours) || isNaN(aHours)) {
+    window.showToast('Completa todos los campos de horario.', 'warning'); return;
+  }
+  if (mHours < 1 || aHours < 1) {
+    window.showToast('Las horas presenciales deben ser ≥ 1.', 'warning'); return;
+  }
+  const newShifts = {
+    morning:   { start: mStart, end: mEnd,   hours: mHours },
+    afternoon: { start: aStart, end: aEnd,   hours: aHours }
+  };
+  APP.shifts = newShifts;
+  window.saveShiftsLocal(newShifts);
+  window.syncAllToGitHub(true);
+  renderApp();
+  window.showToast(
+    `✓ Horarios actualizados — Mañana ${mStart}–${mEnd} (${mHours-1}h ef.) · Tarde ${aStart}–${aEnd} (${aHours-1}h ef.)`,
+    'success', 5000
+  );
 };
 
 // ─── Edición de fechas de incorporación ──────────────────────
@@ -977,6 +1203,7 @@ window.saveStartDateEdit = function(userId) {
 
   const uName = APP.users.find(u => u.id === userId)?.name || userId;
   window.appendAuditEntry('SET_START_DATE', val, '-', userId, uName, 'Admin');
+  window.syncAllToGitHub(true);
   closeEditStartDateModal();
   renderApp();
   window.showToast(`Fecha de incorporación actualizada: ${uName} → ${val}`, 'success');

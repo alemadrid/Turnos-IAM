@@ -147,7 +147,134 @@ window.clearAllLocalData = function() {
   localStorage.removeItem(STORAGE_KEYS.AUDIT_TRAIL);
   localStorage.removeItem('planturnos_startdates_2026');
   localStorage.removeItem('planturnos_joinDates_2026');
+  localStorage.removeItem('planturnos_shifts_cfg');
+  localStorage.removeItem('planturnos_hourslimits');
   window.showToast('Datos locales eliminados. Recarga la página.', 'warning');
+};
+
+// ─── GitHub API sync (datos visibles desde cualquier navegador) ──────────────
+// El admin introduce un Personal Access Token (PAT) con permisos Contents:Write
+// en el repo. Los datos se sincronizan como archivos JSON en data/. Cualquier
+// navegador los ve al cargar la página (GitHub Pages los sirve como estáticos).
+
+window.getGHToken = function() {
+  return localStorage.getItem('planturnos_gh_token') || '';
+};
+window.setGHToken = function(t) {
+  if (t) localStorage.setItem('planturnos_gh_token', t);
+  else   localStorage.removeItem('planturnos_gh_token');
+};
+window.getGHRepo = function() {
+  return localStorage.getItem('planturnos_gh_repo') || 'alemadrid/Turnos-IAM';
+};
+window.setGHRepo = function(r) {
+  localStorage.setItem('planturnos_gh_repo', r || 'alemadrid/Turnos-IAM');
+};
+
+/**
+ * Escribe (o actualiza) un archivo en el repo GitHub vía Contents API.
+ * @returns {{ ok: boolean, reason?: string }}
+ */
+window.ghWriteFile = async function(filePath, data) {
+  const token = window.getGHToken();
+  const repo  = window.getGHRepo();
+  if (!token) return { ok: false, reason: 'no_token' };
+
+  const url     = `https://api.github.com/repos/${repo}/contents/${filePath}`;
+  const headers = {
+    'Authorization':       `Bearer ${token}`,
+    'Accept':              'application/vnd.github.v3+json',
+    'Content-Type':        'application/json',
+    'X-GitHub-Api-Version':'2022-11-28'
+  };
+
+  // Obtener SHA actual (necesario para actualizar archivos existentes)
+  let sha = null;
+  try {
+    const getRes = await fetch(url, { headers });
+    if (getRes.ok) sha = (await getRes.json()).sha;
+  } catch (_) { /* archivo nuevo, sha = null */ }
+
+  // Codificar en base64 con soporte Unicode
+  const jsonStr = JSON.stringify(data, null, 2);
+  const content = btoa(unescape(encodeURIComponent(jsonStr)));
+  const body    = { message: `sync(data): ${filePath}`, content, branch: 'main' };
+  if (sha) body.sha = sha;
+
+  try {
+    const putRes = await fetch(url, { method: 'PUT', headers, body: JSON.stringify(body) });
+    if (!putRes.ok) {
+      const err = await putRes.json().catch(() => ({}));
+      return { ok: false, reason: err.message || String(putRes.status) };
+    }
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, reason: e.message };
+  }
+};
+
+/**
+ * Sincroniza todos los datos operativos a GitHub en paralelo.
+ * @param {boolean} silent - si true, solo muestra errores (no toast de éxito)
+ */
+window.syncAllToGitHub = async function(silent = false) {
+  const token = window.getGHToken();
+  if (!token) {
+    if (!silent) window.showToast(
+      '⚠ Sin token de GitHub. Configúralo en Configuración → Sincronización GitHub.',
+      'warning', 6000
+    );
+    return false;
+  }
+
+  const files = [
+    { path: 'data/vacations.json',      data: window.loadVacationsLocal()    },
+    { path: 'data/schedule.json',       data: window.loadScheduleLocal()     },
+    { path: 'data/userStartDates.json', data: window.loadUserStartDates()    },
+    { path: 'data/userHoursLimits.json',data: window.loadUserHoursLimits()   },
+    { path: 'data/shifts.json',         data: window.loadShiftsLocal() || {} }
+  ];
+
+  if (!silent) window.showToast('⏳ Sincronizando con GitHub…', 'info', 2500);
+  const results = await Promise.all(files.map(f => window.ghWriteFile(f.path, f.data)));
+  const failed  = results.filter(r => !r.ok && r.reason !== 'no_token');
+
+  if (failed.length === 0) {
+    if (!silent) window.showToast(
+      '✅ Sincronizado. Visible en todos los navegadores en ~1 min.',
+      'success', 5000
+    );
+    return true;
+  }
+  window.showToast(
+    `⚠ Sync parcial (${failed.map(f => f.reason).join(', ')}). Comprueba el token.`,
+    'warning', 7000
+  );
+  return false;
+};
+
+// ─── Horarios de turno (configurables) ───────────────────────
+window.loadShiftsLocal = function() {
+  try {
+    const raw = localStorage.getItem('planturnos_shifts_cfg');
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) { return null; }
+};
+window.saveShiftsLocal = function(data) {
+  try { localStorage.setItem('planturnos_shifts_cfg', JSON.stringify(data)); }
+  catch (e) { console.error('saveShiftsLocal:', e); }
+};
+
+// ─── Límites de horas anuales por técnico ────────────────────
+window.loadUserHoursLimits = function() {
+  try {
+    const raw = localStorage.getItem('planturnos_hourslimits');
+    return raw ? JSON.parse(raw) : {};
+  } catch (e) { return {}; }
+};
+window.saveUserHoursLimits = function(data) {
+  try { localStorage.setItem('planturnos_hourslimits', JSON.stringify(data)); }
+  catch (e) { console.error('saveUserHoursLimits:', e); }
 };
 
 /**
