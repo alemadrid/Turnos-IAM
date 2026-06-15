@@ -172,7 +172,23 @@ window.setGHRepo = function(r) {
 };
 
 /**
+ * Obtiene el SHA actual de un archivo en GitHub (sin caché).
+ * @returns {string|null}
+ */
+async function ghGetSHA(url, headers) {
+  try {
+    const res = await fetch(url, {
+      headers: { ...headers, 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
+    });
+    if (res.ok) return (await res.json()).sha || null;
+    if (res.status === 404) return null; // archivo nuevo
+  } catch (_) {}
+  return null;
+}
+
+/**
  * Escribe (o actualiza) un archivo en el repo GitHub vía Contents API.
+ * Reintenta una vez con SHA fresco si hay conflicto (SHA stale).
  * @returns {{ ok: boolean, reason?: string }}
  */
 window.ghWriteFile = async function(filePath, data) {
@@ -182,32 +198,40 @@ window.ghWriteFile = async function(filePath, data) {
 
   const url     = `https://api.github.com/repos/${repo}/contents/${filePath}`;
   const headers = {
-    'Authorization':       `Bearer ${token}`,
-    'Accept':              'application/vnd.github.v3+json',
-    'Content-Type':        'application/json',
-    'X-GitHub-Api-Version':'2022-11-28'
+    'Authorization':        `Bearer ${token}`,
+    'Accept':               'application/vnd.github.v3+json',
+    'Content-Type':         'application/json',
+    'X-GitHub-Api-Version': '2022-11-28'
   };
 
-  // Obtener SHA actual (necesario para actualizar archivos existentes)
-  let sha = null;
-  try {
-    const getRes = await fetch(url, { headers });
-    if (getRes.ok) sha = (await getRes.json()).sha;
-  } catch (_) { /* archivo nuevo, sha = null */ }
-
-  // Codificar en base64 con soporte Unicode
+  // Codificar en base64 con soporte Unicode completo
   const jsonStr = JSON.stringify(data, null, 2);
   const content = btoa(unescape(encodeURIComponent(jsonStr)));
-  const body    = { message: `sync(data): ${filePath}`, content, branch: 'main' };
-  if (sha) body.sha = sha;
+
+  const doWrite = async (sha) => {
+    const body = { message: `sync(data): ${filePath}`, content, branch: 'main' };
+    if (sha) body.sha = sha;
+    return fetch(url, { method: 'PUT', headers, body: JSON.stringify(body) });
+  };
 
   try {
-    const putRes = await fetch(url, { method: 'PUT', headers, body: JSON.stringify(body) });
-    if (!putRes.ok) {
-      const err = await putRes.json().catch(() => ({}));
-      return { ok: false, reason: err.message || String(putRes.status) };
+    // Primer intento: obtenemos SHA sin caché
+    const sha1   = await ghGetSHA(url, headers);
+    const putRes = await doWrite(sha1);
+
+    if (putRes.ok) return { ok: true };
+
+    // Si el error es conflicto de SHA (409), reintentamos con SHA fresco
+    if (putRes.status === 409 || putRes.status === 422) {
+      const sha2    = await ghGetSHA(url, headers);
+      const putRes2 = await doWrite(sha2);
+      if (putRes2.ok) return { ok: true };
+      const err2 = await putRes2.json().catch(() => ({}));
+      return { ok: false, reason: `conflicto SHA (${putRes2.status})` };
     }
-    return { ok: true };
+
+    const err = await putRes.json().catch(() => ({}));
+    return { ok: false, reason: err.message || String(putRes.status) };
   } catch (e) {
     return { ok: false, reason: e.message };
   }
