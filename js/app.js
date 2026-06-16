@@ -143,7 +143,7 @@ function setupNavigation() {
 
 window.navigateTo = function(view) {
   // Guard: vistas restringidas a admin
-  const adminOnlyViews = ['vacations', 'report', 'settings'];
+  const adminOnlyViews = ['vacations', 'report', 'settings', 'forecast2027'];
   if (adminOnlyViews.includes(view) && !APP.isAdmin) {
     window.showToast('🔒 Activa el modo Administrador para acceder.', 'warning');
     return;
@@ -164,6 +164,7 @@ function renderApp() {
     case 'vacations':  root.innerHTML = renderVacationsView();  break;
     case 'report':     root.innerHTML = renderReportView();     break;
     case 'settings':   root.innerHTML = renderSettingsView();   break;
+    case 'forecast2027': root.innerHTML = window.renderForecast2027(); break;
     default:           root.innerHTML = renderDashboard();
   }
   requestAnimationFrame(setupTooltips);
@@ -209,6 +210,7 @@ function initials(name) {
 }
 
 // ─── Tooltip global ──────────────────────────────────────────
+window.setupTooltips = setupTooltips;
 function setupTooltips() {
   const tip = document.getElementById('global-tooltip');
   if (!tip) return;
