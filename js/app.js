@@ -1001,6 +1001,30 @@ function renderSettingsView() {
            white-space:pre-wrap;color:var(--text-muted)"></div>` : ''}
     </section>
 
+    ${APP.isAdmin ? `
+    <section class="section-card">
+      <h2 class="section-title">📦 Subida manual a GitHub (sin conexión API)</h2>
+      <p class="section-desc">
+        Si el portátil bloquea la sincronización automática (proxy/antivirus corporativo),
+        usa este modo: haz todos tus cambios (turnos, vacaciones, configuración…),
+        descarga los archivos y súbelos a mano al repositorio.
+      </p>
+      <ol style="font-size:.82rem;color:var(--text-muted);line-height:1.7;margin:0 0 12px 18px">
+        <li>Pulsa <strong>Descargar archivos de datos</strong> (se bajan 6 archivos <code>.json</code>).</li>
+        <li>Abre <a href="https://github.com/${ghRepo}/upload/main/data" target="_blank" style="color:var(--accent)">GitHub → carpeta <code>data/</code> → Add file → Upload files</a>.</li>
+        <li>Arrastra los 6 archivos descargados (sobrescriben los anteriores).</li>
+        <li>Escribe un mensaje y pulsa <strong>Commit changes</strong>. Listo: el resto verá los cambios.</li>
+      </ol>
+      <div class="toolbar">
+        <button class="btn-primary" onclick="window.downloadGitHubDataFiles()">⬇ Descargar archivos de datos</button>
+        <a class="btn-secondary" href="https://github.com/${ghRepo}/upload/main/data" target="_blank"
+           style="text-decoration:none;display:inline-flex;align-items:center">↗ Abrir subida en GitHub</a>
+      </div>
+      <span style="font-size:.72rem;color:var(--text-muted);margin-top:6px;display:block">
+        El navegador puede pedir permiso para «descargar varios archivos»: acéptalo.
+      </span>
+    </section>` : ''}
+
     <section class="section-card">
       <h2 class="section-title">Backup de Datos</h2>
       <p class="section-desc">Exporta o restaura datos operativos. Las credenciales nunca se almacenan localmente.</p>

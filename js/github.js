@@ -108,6 +108,39 @@ window.exportBackup = function() {
 };
 
 /**
+ * Descarga los archivos de datos con sus nombres EXACTOS (schedule.json,
+ * vacations.json, etc.), listos para subirlos manualmente a la carpeta data/
+ * del repositorio de GitHub. Pensado para portátiles donde la red/antivirus
+ * corporativo bloquea la escritura vía API.
+ */
+window.downloadGitHubDataFiles = function() {
+  const files = [
+    { name: 'vacations.json',        data: window.loadVacationsLocal()      || {} },
+    { name: 'schedule.json',         data: window.loadScheduleLocal()       || {} },
+    { name: 'userStartDates.json',   data: window.loadUserStartDates()      || {} },
+    { name: 'userHoursLimits.json',  data: window.loadUserHoursLimits()     || {} },
+    { name: 'userVacationDays.json', data: window.loadUserVacationDays()    || {} },
+    { name: 'shifts.json',           data: window.loadShiftsLocal()         || {} }
+  ];
+  // Descargas escalonadas: algunos navegadores bloquean varias descargas
+  // simultáneas, así que las separamos unos cientos de ms.
+  files.forEach((f, i) => {
+    setTimeout(() => {
+      const blob = new Blob([JSON.stringify(f.data, null, 2)], { type: 'application/json' });
+      const url  = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href     = url;
+      link.download = f.name;            // nombre EXACTO, sin fecha
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }, i * 400);
+  });
+  window.showToast('⬇ Descargando 6 archivos. Súbelos a la carpeta data/ del repo en GitHub.', 'success', 7000);
+};
+
+/**
  * Importa un backup desde archivo JSON.
  * @param {File} file
  * @param {Function} onSuccess - callback(schedule, vacations)
