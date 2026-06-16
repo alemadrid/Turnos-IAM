@@ -377,6 +377,108 @@ async function _syncAllToGitHubImpl(silent) {
   return false;
 };
 
+/**
+ * Diagnóstico del token: hace peticiones reales a la API y muestra el código
+ * y mensaje EXACTOS de GitHub en cada paso (token válido, acceso al repo,
+ * permiso de lectura y permiso de escritura). Sirve para saber con certeza
+ * por qué falla la sincronización en lugar de adivinar.
+ */
+window.diagnoseGHToken = async function() {
+  const out = (txt) => {
+    const el = document.getElementById('gh-diag');
+    if (el) el.textContent = txt;
+    console.log('[GH diag]\n' + txt);
+  };
+
+  const token = window.getGHToken();
+  const repo  = window.getGHRepo();
+  if (!token) { out('❌ No hay token guardado. Pega uno y pulsa «Guardar configuración».'); return; }
+  if (!repo)  { out('❌ No hay repositorio configurado.'); return; }
+
+  const headers = {
+    'Authorization':        `Bearer ${token}`,
+    'Accept':               'application/vnd.github.v3+json',
+    'X-GitHub-Api-Version': '2022-11-28'
+  };
+  const lines = [];
+  const kind = token.startsWith('github_pat_') ? 'fine-grained' : token.startsWith('ghp_') ? 'classic' : 'desconocido';
+  lines.push(`Token: ${token.slice(0, 10)}…  (${kind}, ${token.length} car.)`);
+  lines.push(`Repo:  ${repo}`);
+  lines.push('Probando…'); out(lines.join('\n'));
+
+  // 1) ¿El token es válido? GET /user
+  try {
+    const r = await fetch('https://api.github.com/user', { headers });
+    if (r.ok) {
+      const u = await r.json();
+      lines.push(`1) Token válido ✅  — usuario: ${u.login}`);
+    } else {
+      const e = await r.json().catch(() => ({}));
+      lines.push(`1) Token NO válido ❌  HTTP ${r.status} — ${e.message || ''}`);
+      lines.push('   → El token está mal copiado o ha caducado. Genera uno nuevo.');
+      out(lines.join('\n')); return;
+    }
+  } catch (e) {
+    lines.push(`1) Error de red al validar token: ${e.message}`);
+    out(lines.join('\n')); return;
+  }
+
+  // 2) ¿Acceso al repositorio? GET /repos/{repo}
+  let branch = 'main';
+  try {
+    const r = await fetch(`https://api.github.com/repos/${repo}`, { headers });
+    if (r.ok) {
+      const j = await r.json();
+      branch = j.default_branch || 'main';
+      const perms = j.permissions || {};
+      lines.push(`2) Repo accesible ✅  — rama por defecto: ${branch}`);
+      lines.push(`   Permisos efectivos: push=${!!perms.push}  admin=${!!perms.admin}`);
+      if (perms.push === false) {
+        lines.push('   ⚠ El token NO tiene permiso de escritura (push=false).');
+      }
+    } else {
+      const e = await r.json().catch(() => ({}));
+      lines.push(`2) Repo NO accesible ❌  HTTP ${r.status} — ${e.message || ''}`);
+      lines.push('   → El token no tiene seleccionado este repo, o el nombre es incorrecto.');
+      out(lines.join('\n')); return;
+    }
+  } catch (e) {
+    lines.push(`2) Error de red al leer el repo: ${e.message}`);
+    out(lines.join('\n')); return;
+  }
+
+  // 3) Prueba de ESCRITURA real sobre data/shifts.json (reescribe lo mismo)
+  try {
+    const url = `https://api.github.com/repos/${repo}/contents/data/shifts.json`;
+    const getR = await fetch(`${url}?_=${Date.now()}&ref=${encodeURIComponent(branch)}`, {
+      headers: { ...headers, 'Cache-Control': 'no-cache' }
+    });
+    let sha = null, current = '{}';
+    if (getR.ok) {
+      const j = await getR.json();
+      sha = j.sha || null;
+      try { current = decodeURIComponent(escape(atob((j.content || '').replace(/\n/g, '')))) || '{}'; } catch (_) {}
+    }
+    const content = btoa(unescape(encodeURIComponent(current)));
+    const body = { message: 'test: diagnóstico de token', content, branch };
+    if (sha) body.sha = sha;
+    const putR = await fetch(url, { method: 'PUT', headers: { ...headers, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    if (putR.ok) {
+      lines.push('3) Escritura ✅  — el token PUEDE escribir. La sincronización debería funcionar.');
+    } else {
+      const e = await putR.json().catch(() => ({}));
+      lines.push(`3) Escritura FALLA ❌  HTTP ${putR.status} — ${e.message || ''}`);
+      if (putR.status === 403) lines.push('   → Falta permiso «Contents: Read and write» en el token (fine-grained) o «repo» (classic).');
+      if (putR.status === 404) lines.push('   → El token no ve el repo para escribir (revisa repos seleccionados).');
+      if (putR.status === 409 || putR.status === 422) lines.push('   → Conflicto de SHA transitorio; reintenta «Sincronizar ahora».');
+    }
+  } catch (e) {
+    lines.push(`3) Error de red al escribir: ${e.message}`);
+  }
+
+  out(lines.join('\n'));
+};
+
 // ─── Horarios de turno (configurables) ───────────────────────
 window.loadShiftsLocal = function() {
   try {

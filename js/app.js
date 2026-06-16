@@ -976,7 +976,10 @@ function renderSettingsView() {
       <div class="toolbar">
         <button class="btn-primary" onclick="saveGHConfig()">💾 Guardar configuración</button>
         <button class="btn-secondary" onclick="window.syncAllToGitHub(false)">🔄 Sincronizar ahora</button>
-      </div>` : ''}
+        <button class="btn-secondary" onclick="window.diagnoseGHToken()">🩺 Probar token</button>
+      </div>
+      <div id="gh-diag" style="margin-top:10px;font-family:var(--font-mono);font-size:.78rem;
+           white-space:pre-wrap;color:var(--text-muted)"></div>` : ''}
     </section>
 
     <section class="section-card">
