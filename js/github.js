@@ -170,26 +170,70 @@ window.getGHRepo = function() {
 window.setGHRepo = function(r) {
   localStorage.setItem('planturnos_gh_repo', r || 'alemadrid/Turnos-IAM');
 };
+// Rama destino. Vacío = rama por defecto del repo (se detecta automáticamente).
+window.getGHBranch = function() {
+  return localStorage.getItem('planturnos_gh_branch') || '';
+};
+window.setGHBranch = function(b) {
+  if (b) localStorage.setItem('planturnos_gh_branch', b);
+  else   localStorage.removeItem('planturnos_gh_branch');
+};
+
+// Caché en memoria de la rama por defecto detectada (por repo).
+let _ghDefaultBranchCache = {};
 
 /**
- * Obtiene el SHA actual de un archivo en GitHub (sin caché).
- * @returns {string|null}
+ * Resuelve la rama destino: la configurada manualmente o la rama por defecto
+ * del repositorio (consultada vía API y cacheada). Si no se puede detectar,
+ * devuelve null para que la Contents API use la rama por defecto implícita.
  */
-async function ghGetSHA(url, headers) {
+async function ghResolveBranch(repo, headers) {
+  const manual = window.getGHBranch();
+  if (manual) return manual;
+  if (_ghDefaultBranchCache[repo]) return _ghDefaultBranchCache[repo];
   try {
-    const res = await fetch(url, {
-      headers: { ...headers, 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
+    const res = await fetch(`https://api.github.com/repos/${repo}`, {
+      headers: { ...headers, 'Cache-Control': 'no-cache' }
     });
-    if (res.ok) return (await res.json()).sha || null;
-    if (res.status === 404) return null; // archivo nuevo
+    if (res.ok) {
+      const def = (await res.json()).default_branch || null;
+      if (def) _ghDefaultBranchCache[repo] = def;
+      return def;
+    }
   } catch (_) {}
   return null;
 }
 
+// SHA autoritativo de cada archivo según la última escritura correcta de esta
+// sesión. Evita depender del GET (cacheable) entre escrituras consecutivas.
+let _ghShaCache = {};
+
+/**
+ * Obtiene el SHA actual de un archivo en GitHub (sin caché).
+ * @returns {{ found: boolean, sha: string|null, error?: boolean }}
+ */
+async function ghGetSHA(url, headers, branch) {
+  // Cache-busting: la Contents API se sirve desde caché de CDN y tras una
+  // escritura el SHA puede venir obsoleto durante ~1 min → el PUT siguiente
+  // fallaría con 422. Un parámetro único fuerza una respuesta fresca.
+  let u = `${url}?_=${Date.now()}`;
+  if (branch) u += `&ref=${encodeURIComponent(branch)}`;
+  try {
+    const res = await fetch(u, {
+      headers: { ...headers, 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
+    });
+    if (res.ok)            return { found: true,  sha: (await res.json()).sha || null };
+    if (res.status === 404) return { found: false, sha: null }; // archivo nuevo
+    return { found: false, sha: null, error: true };            // 401/403/5xx…
+  } catch (_) {
+    return { found: false, sha: null, error: true };
+  }
+}
+
 /**
  * Escribe (o actualiza) un archivo en el repo GitHub vía Contents API.
- * Reintenta una vez con SHA fresco si hay conflicto (SHA stale).
- * @returns {{ ok: boolean, reason?: string }}
+ * Reintenta varias veces con SHA fresco ante conflictos de SHA/ref (409/422).
+ * @returns {{ ok: boolean, reason?: string, status?: number }}
  */
 window.ghWriteFile = async function(filePath, data) {
   const token = window.getGHToken();
@@ -204,44 +248,88 @@ window.ghWriteFile = async function(filePath, data) {
     'X-GitHub-Api-Version': '2022-11-28'
   };
 
+  // Rama destino: configurada o por defecto del repo (null = implícita)
+  const branch   = await ghResolveBranch(repo, headers);
+  const cacheKey = `${repo}@${branch || ''}:${filePath}`;
+
   // Codificar en base64 con soporte Unicode completo
   const jsonStr = JSON.stringify(data, null, 2);
   const content = btoa(unescape(encodeURIComponent(jsonStr)));
 
   const doWrite = async (sha) => {
-    const body = { message: `sync(data): ${filePath}`, content, branch: 'main' };
-    if (sha) body.sha = sha;
+    const body = { message: `sync(data): ${filePath}`, content };
+    if (branch) body.branch = branch;
+    if (sha)    body.sha    = sha;
     return fetch(url, { method: 'PUT', headers, body: JSON.stringify(body) });
   };
 
-  try {
-    // Primer intento: obtenemos SHA sin caché
-    const sha1   = await ghGetSHA(url, headers);
-    const putRes = await doWrite(sha1);
+  // Hasta 4 intentos. En el 1º usamos el SHA autoritativo en caché (devuelto
+  // por la última escritura correcta), evitando el GET cacheable. Si falla con
+  // 409/422 (SHA obsoleto) refrescamos vía GET con cache-busting y reintentamos.
+  // Errores de token/permiso (401/403/404) no se reintentan.
+  let lastReason = 'desconocido';
+  let lastStatus = 0;
+  for (let attempt = 0; attempt < 4; attempt++) {
+    try {
+      let sha;
+      if (attempt === 0 && Object.prototype.hasOwnProperty.call(_ghShaCache, cacheKey)) {
+        sha = _ghShaCache[cacheKey]; // SHA autoritativo de la última escritura
+      } else {
+        const shaInfo = await ghGetSHA(url, headers, branch);
+        if (shaInfo.error) {
+          return { ok: false, reason: 'no se pudo leer el archivo (token o permisos)', status: 403 };
+        }
+        sha = shaInfo.sha;
+      }
 
-    if (putRes.ok) return { ok: true };
+      const putRes = await doWrite(sha);
+      if (putRes.ok) {
+        // Guardamos el SHA nuevo devuelto por GitHub para la próxima escritura
+        const okBody = await putRes.json().catch(() => ({}));
+        if (okBody && okBody.content && okBody.content.sha) {
+          _ghShaCache[cacheKey] = okBody.content.sha;
+        }
+        return { ok: true };
+      }
 
-    // Si el error es conflicto de SHA (409), reintentamos con SHA fresco
-    if (putRes.status === 409 || putRes.status === 422) {
-      const sha2    = await ghGetSHA(url, headers);
-      const putRes2 = await doWrite(sha2);
-      if (putRes2.ok) return { ok: true };
-      const err2 = await putRes2.json().catch(() => ({}));
-      return { ok: false, reason: `conflicto SHA (${putRes2.status})` };
+      lastStatus = putRes.status;
+      const err  = await putRes.json().catch(() => ({}));
+      lastReason = err.message || String(putRes.status);
+
+      if (putRes.status === 409 || putRes.status === 422) {
+        delete _ghShaCache[cacheKey]; // SHA cacheado inválido → refrescar vía GET
+        await new Promise(r => setTimeout(r, 350 * (attempt + 1)));
+        continue; // SHA caducado: refrescamos y reintentamos
+      }
+      if (putRes.status === 401 || putRes.status === 403) {
+        return { ok: false, reason: 'token inválido o sin permiso Contents:Write', status: putRes.status };
+      }
+      if (putRes.status === 404) {
+        return { ok: false, reason: 'repositorio o rama no encontrados', status: 404 };
+      }
+      return { ok: false, reason: lastReason, status: putRes.status };
+    } catch (e) {
+      lastReason = e.message;
     }
-
-    const err = await putRes.json().catch(() => ({}));
-    return { ok: false, reason: err.message || String(putRes.status) };
-  } catch (e) {
-    return { ok: false, reason: e.message };
   }
+  return { ok: false, reason: lastReason, status: lastStatus };
 };
 
 /**
- * Sincroniza todos los datos operativos a GitHub en paralelo.
+ * Sincroniza todos los datos operativos a GitHub.
+ * Las llamadas se serializan (cola) para que dos sync nunca se solapen y
+ * provoquen carreras de SHA al escribir el mismo archivo a la vez.
  * @param {boolean} silent - si true, solo muestra errores (no toast de éxito)
  */
-window.syncAllToGitHub = async function(silent = false) {
+let _ghSyncQueue = Promise.resolve();
+window.syncAllToGitHub = function(silent = false) {
+  const run = () => _syncAllToGitHubImpl(silent);
+  // Encadenamos sobre la cola; capturamos errores para no romper la cadena.
+  _ghSyncQueue = _ghSyncQueue.then(run, run);
+  return _ghSyncQueue;
+};
+
+async function _syncAllToGitHubImpl(silent) {
   const token = window.getGHToken();
   if (!token) {
     if (!silent) window.showToast(
@@ -260,8 +348,16 @@ window.syncAllToGitHub = async function(silent = false) {
   ];
 
   if (!silent) window.showToast('⏳ Sincronizando con GitHub…', 'info', 2500);
-  const results = await Promise.all(files.map(f => window.ghWriteFile(f.path, f.data)));
-  const failed  = results.filter(r => !r.ok && r.reason !== 'no_token');
+
+  // Secuencial (NO en paralelo): cada archivo es un commit a la misma rama.
+  // Varios commits simultáneos chocan en el ref/SHA de la rama y GitHub los
+  // rechaza con 409/422. Escribiendo uno tras otro cada commit se asienta
+  // antes del siguiente y se evitan los "conflicto SHA".
+  const failed = [];
+  for (const f of files) {
+    const r = await window.ghWriteFile(f.path, f.data);
+    if (!r.ok && r.reason !== 'no_token') failed.push({ file: f.path, ...r });
+  }
 
   if (failed.length === 0) {
     if (!silent) window.showToast(
@@ -270,10 +366,14 @@ window.syncAllToGitHub = async function(silent = false) {
     );
     return true;
   }
-  window.showToast(
-    `⚠ Sync parcial (${failed.map(f => f.reason).join(', ')}). Comprueba el token.`,
-    'warning', 7000
-  );
+
+  // Diagnóstico claro del token: si hay 401/403 el PAT no sirve o le falta
+  // el permiso Contents:Write; lo más probable es que haya caducado.
+  const authIssue = failed.some(f => f.status === 401 || f.status === 403);
+  const msg = authIssue
+    ? '⚠ El token de GitHub no es válido o le falta el permiso «Contents: Write» (puede haber caducado). Genera uno nuevo en GitHub y vuelve a guardarlo.'
+    : `⚠ Sync parcial (${[...new Set(failed.map(f => f.reason))].join('; ')}). Pulsa «Sincronizar ahora» para reintentar.`;
+  window.showToast(msg, 'warning', 8000);
   return false;
 };
 

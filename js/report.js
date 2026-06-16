@@ -43,6 +43,43 @@ function countWorkdays(startStr, endStr) {
 }
 
 /**
+ * Construye un Set con todas las fechas festivas (YYYY-MM-DD): cierres,
+ * festivos nacionales y locales de Alicante.
+ */
+function buildHolidaySet(holidays) {
+  const set = new Set();
+  if (!holidays) return set;
+  ['closure', 'national', 'alicante'].forEach(k => {
+    (holidays[k] || []).forEach(h => { if (h && h.date) set.add(h.date); });
+  });
+  return set;
+}
+
+/**
+ * Cuenta los días REALMENTE trabajados (lun-vie) en [startStr, endStr],
+ * excluyendo festivos y los días de vacaciones del técnico. Refleja las
+ * horas efectivas, no los días naturales laborables.
+ */
+function countWorkedDays(startStr, endStr, holidaySet, vacRanges) {
+  const s = window.parseLocalDate(startStr);
+  const e = window.parseLocalDate(endStr);
+  if (!s || !e || s > e) return 0;
+  let count = 0;
+  const d = new Date(s);
+  while (d <= e) {
+    const dow = d.getDay();
+    if (dow !== 0 && dow !== 6) {
+      const ds = window.formatDateLocal(d);
+      const isHoliday  = holidaySet.has(ds);
+      const onVacation = vacRanges.some(v => ds >= v.start && ds <= v.end);
+      if (!isHoliday && !onVacation) count++;
+    }
+    d.setDate(d.getDate() + 1);
+  }
+  return count;
+}
+
+/**
  * Calcula las horas anuales proporcionales que le corresponden al técnico.
  * Basado en su joinDate2026 (fecha de alta en 2026) y el total de
  * días laborables del año (261).
@@ -66,13 +103,27 @@ function calcProportionalHours(joinDate2026Str, annualLimit) {
   const dias = countWorkdays(joinDate2026Str, YEAR_END);
   return Math.round(dias * ratio);
 }
+window.calcProportionalHours = calcProportionalHours;
+
+/**
+ * Límite general anual (trabajo efectivo) común a toda la plantilla.
+ * 1.782h = año completo. Se prorratea por técnico según su fecha de alta.
+ * El valor se guarda bajo la clave reservada "general" en APP.userHoursLimits.
+ */
+function getGeneralAnnualLimit() {
+  const g = (typeof APP !== 'undefined' && APP.userHoursLimits && APP.userHoursLimits.general);
+  const n = parseInt(g);
+  return (!isNaN(n) && n > 0) ? n : HOURS_ANNUAL_LIMIT;
+}
+window.getGeneralAnnualLimit = getGeneralAnnualLimit;
 
 /**
  * Calcula las horas acumuladas reales de un técnico:
- *   Periodo A: jornada previa (joinDate2026 → 5 jul 2026) = 8h/día lab.
+ *   Periodo A: jornada previa (joinDate2026 → 5 jul 2026) = 8h/día trabajado
+ *              (excluye festivos y vacaciones del técnico)
  *   Periodo B: turnos del cuadrante (días con turno asignado) = 8h/turno
  */
-function calcAccumulatedHours(userId, joinDate2026Str, schedule) {
+function calcAccumulatedHours(userId, joinDate2026Str, schedule, vacations, holidays) {
   const YEAR_START  = '2026-01-01';
   const PRE_END     = '2026-07-05'; // último día antes de turnos
   const TURNS_START_D = window.parseLocalDate(TURNS_START);
@@ -88,10 +139,13 @@ function calcAccumulatedHours(userId, joinDate2026Str, schedule) {
     : joinDate2026Str;
 
   // ── Periodo A: jornada previa ────────────────────────────────
-  // Solo si el técnico estaba antes del 6 jul
+  // Solo si el técnico estaba antes del 6 jul. Cuenta únicamente los días
+  // realmente trabajados (sin festivos ni sus vacaciones) × 8h efectivas.
   let preHours = 0;
   if (effectiveStart <= PRE_END) {
-    const diasPre = countWorkdays(effectiveStart, PRE_END);
+    const holidaySet = buildHolidaySet(holidays);
+    const vacRanges  = (vacations && vacations[userId]) ? vacations[userId] : [];
+    const diasPre    = countWorkedDays(effectiveStart, PRE_END, holidaySet, vacRanges);
     preHours = diasPre * HOURS_EFFECTIVE_PRE_TURNS;
   }
 
@@ -105,8 +159,14 @@ function calcAccumulatedHours(userId, joinDate2026Str, schedule) {
     if (dateStr < effectiveStart) return; // antes del alta del técnico
     const inMorning   = (day.morning   || []).includes(userId);
     const inAfternoon = (day.afternoon || []).includes(userId);
-    if (inMorning)   turnHours += mEffective;
-    if (inAfternoon) turnHours += aEffective;
+    // El viernes puede tener horario propio (salida anticipada).
+    let mEff = mEffective, aEff = aEffective;
+    if (d.getDay() === 5 && shiftCfg?.friday) {
+      if (shiftCfg.friday.morning?.hours   > 0) mEff = shiftCfg.friday.morning.hours   - 1;
+      if (shiftCfg.friday.afternoon?.hours > 0) aEff = shiftCfg.friday.afternoon.hours - 1;
+    }
+    if (inMorning)   turnHours += mEff;
+    if (inAfternoon) turnHours += aEff;
   });
 
   return { preHours, turnHours, total: preHours + turnHours };
@@ -128,10 +188,9 @@ window.generateEquityReport = function(users, schedule, vacations, holidays) {
     const effectiveStart = (typeof window.getEffectiveStartDate === 'function')
       ? window.getEffectiveStartDate(u.id)
       : (u.joinDate2026 || u.joinDate || '2026-01-01');
-    // Límite individual: de APP.userHoursLimits si existe, si no el global
-    const userLimit = (typeof APP !== 'undefined' && APP.userHoursLimits && APP.userHoursLimits[u.id])
-      ? parseInt(APP.userHoursLimits[u.id])
-      : HOURS_ANNUAL_LIMIT;
+    // Límite general anual común a toda la plantilla (1.782h = año completo),
+    // prorrateado por la fecha de incorporación de cada técnico.
+    const userLimit = getGeneralAnnualLimit();
     metrics[u.id] = {
       id:               u.id,
       name:             u.name,
@@ -162,7 +221,7 @@ window.generateEquityReport = function(users, schedule, vacations, holidays) {
     m.totalWorked = m.morningDays + m.afternoonDays;
 
     // Horas acumuladas reales
-    const acc       = calcAccumulatedHours(u.id, m.joinDate2026, schedule);
+    const acc       = calcAccumulatedHours(u.id, m.joinDate2026, schedule, vacations, holidays);
     m.hoursPreTurns = acc.preHours;
     m.hoursTurns    = acc.turnHours;
     m.hoursTotal    = acc.total;

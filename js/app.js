@@ -892,6 +892,12 @@ function renderSettingsView() {
   const shifts = APP.shifts || APP.config?.shifts ||
     { morning: { start: '08:00', end: '17:00', hours: 9 }, afternoon: { start: '15:00', end: '24:00', hours: 9 } };
 
+  // Horario de viernes: si no está configurado, parte del de lunes-jueves.
+  const fri = shifts.friday || {
+    morning:   { ...shifts.morning },
+    afternoon: { ...shifts.afternoon }
+  };
+
   const ghToken  = window.getGHToken ? window.getGHToken() : '';
   const ghRepo   = window.getGHRepo  ? window.getGHRepo()  : 'alemadrid/Turnos-IAM';
   const syncBadge = ghToken
@@ -920,17 +926,22 @@ function renderSettingsView() {
     </tr>`;
   }).join('');
 
-  // Tabla de límites de horas anuales
+  // Límite general anual (común) y tabla de prorrateo por técnico
+  const generalLimit = (window.getGeneralAnnualLimit ? window.getGeneralAnnualLimit() : 1782);
   const hoursRows = APP.users.map(u => {
-    const limit = (APP.userHoursLimits && APP.userHoursLimits[u.id]) || 1782;
+    const effStart = window.getEffectiveStartDate(u.id);
+    const prorated = window.calcProportionalHours
+      ? window.calcProportionalHours(effStart, generalLimit)
+      : generalLimit;
+    const isFullYear = !effStart || effStart <= '2026-01-01';
+    const badge = isFullYear
+      ? `<span class="audit-tag" style="background:var(--bg-4);color:var(--text-muted)">año completo</span>`
+      : `<span class="audit-tag" style="background:var(--accent-dim);color:var(--accent)">prorrateado</span>`;
     return `<tr>
       <td>${u.name}</td>
       <td>${u.profile}</td>
-      <td><input type="number" class="hours-limit-input" data-uid="${u.id}"
-                 value="${limit}" min="100" max="3000"
-                 style="width:90px;background:var(--bg-4);border:1px solid var(--border);
-                        color:var(--text);padding:3px 8px;border-radius:4px"
-                 ${!APP.isAdmin ? 'disabled' : ''}></td>
+      <td class="mono">${effStart}</td>
+      <td class="mono" style="font-weight:600">${prorated}h ${badge}</td>
     </tr>`;
   }).join('');
 
@@ -994,19 +1005,31 @@ function renderSettingsView() {
     </section>
 
     <section class="section-card">
-      <h2 class="section-title">⏱ Límite de Horas Anuales por Técnico</h2>
+      <h2 class="section-title">⏱ Límite de Horas Anuales</h2>
       <p class="section-desc">
-        Máximo de horas anuales de trabajo efectivo por técnico.
-        Por defecto <strong>1.782h</strong>. Cambia el valor para ajustarlo a cada caso.
+        Máximo de horas anuales de trabajo efectivo. El valor es el <strong>límite general
+        para todo el año completo</strong> y se <strong>prorratea automáticamente</strong> por
+        técnico según su fecha de incorporación (días laborables hasta el 31 dic).
         ${!APP.isAdmin ? '<br><span style="opacity:.7">Activa el modo Administrador para editar.</span>' : ''}
       </p>
+      <div class="form-row">
+        <label>Límite general anual (h)</label>
+        <input type="number" id="general-hours-limit" value="${generalLimit}" min="100" max="3000"
+               style="width:120px;background:var(--bg-4);border:1px solid var(--border);
+                      color:var(--text);padding:3px 8px;border-radius:4px"
+               ${!APP.isAdmin ? 'disabled' : ''}>
+        <span style="font-size:.72rem;color:var(--text-muted);margin-top:3px;display:block">
+          Por defecto <strong>1.782h</strong> (año completo).
+        </span>
+      </div>
+      ${APP.isAdmin ? `<div class="toolbar" style="margin:8px 0 12px">
+        <button class="btn-primary" onclick="saveHoursLimits()">💾 Guardar límite general</button>
+      </div>` : ''}
+      <h3 style="font-size:.85rem;color:var(--text-muted);margin:6px 0 4px;letter-spacing:.04em">PRORRATEO POR TÉCNICO</h3>
       <div class="table-wrap"><table class="data-table">
-        <thead><tr><th>Técnico</th><th>Perfil</th><th>Límite anual (h)</th></tr></thead>
+        <thead><tr><th>Técnico</th><th>Perfil</th><th>Fecha efectiva cómputo</th><th>Límite prorrateado</th></tr></thead>
         <tbody>${hoursRows}</tbody>
       </table></div>
-      ${APP.isAdmin ? `<div class="toolbar" style="margin-top:12px">
-        <button class="btn-primary" onclick="saveHoursLimits()">💾 Guardar límites</button>
-      </div>` : ''}
     </section>
 
     <section class="section-card">
@@ -1014,8 +1037,10 @@ function renderSettingsView() {
       <p class="section-desc">
         Horas presenciales de cada turno. <strong>Horas efectivas = presenciales − 1h descanso</strong>.
         Reducir las horas ajusta el cómputo anual en los informes.
+        El <strong>viernes</strong> se configura aparte para permitir salir antes.
         ${!APP.isAdmin ? '<br><span style="opacity:.7">Activa el modo Administrador para editar.</span>' : ''}
       </p>
+      <h3 style="font-size:.85rem;color:var(--text-muted);margin:6px 0 4px;letter-spacing:.04em">LUNES A JUEVES</h3>
       <div class="table-wrap"><table class="data-table">
         <thead><tr><th>Turno</th><th>Inicio</th><th>Fin</th><th>Horas presenciales</th><th>Horas efectivas</th></tr></thead>
         <tbody>
@@ -1046,6 +1071,40 @@ function renderSettingsView() {
                  style="width:65px;background:var(--bg-4);border:1px solid var(--border);color:var(--text);padding:3px 8px;border-radius:4px"
                  ${!APP.isAdmin ? 'disabled' : ''}></td>
             <td id="shift-a-eff" style="color:var(--green);font-family:var(--font-mono)">${shifts.afternoon.hours - 1}h ef.</td>
+          </tr>
+        </tbody>
+      </table></div>
+      <h3 style="font-size:.85rem;color:var(--text-muted);margin:14px 0 4px;letter-spacing:.04em">🎉 VIERNES <span style="font-weight:400;text-transform:none">(jornada reducida — salida anticipada)</span></h3>
+      <div class="table-wrap"><table class="data-table">
+        <thead><tr><th>Turno</th><th>Inicio</th><th>Fin</th><th>Horas presenciales</th><th>Horas efectivas</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><span style="color:var(--morning-col)">☀ Mañana</span></td>
+            <td><input type="time" id="shift-fm-start" value="${fri.morning.start}"
+                 style="background:var(--bg-4);border:1px solid var(--border);color:var(--text);padding:3px 8px;border-radius:4px"
+                 ${!APP.isAdmin ? 'disabled' : ''}></td>
+            <td><input type="time" id="shift-fm-end" value="${fri.morning.end}"
+                 style="background:var(--bg-4);border:1px solid var(--border);color:var(--text);padding:3px 8px;border-radius:4px"
+                 ${!APP.isAdmin ? 'disabled' : ''}></td>
+            <td><input type="number" id="shift-fm-hours" value="${fri.morning.hours}" min="1" max="16"
+                 oninput="document.getElementById('shift-fm-eff').textContent=(+this.value-1)+'h ef.'"
+                 style="width:65px;background:var(--bg-4);border:1px solid var(--border);color:var(--text);padding:3px 8px;border-radius:4px"
+                 ${!APP.isAdmin ? 'disabled' : ''}></td>
+            <td id="shift-fm-eff" style="color:var(--green);font-family:var(--font-mono)">${fri.morning.hours - 1}h ef.</td>
+          </tr>
+          <tr>
+            <td><span style="color:var(--afternoon-col)">🌙 Tarde</span></td>
+            <td><input type="time" id="shift-fa-start" value="${fri.afternoon.start}"
+                 style="background:var(--bg-4);border:1px solid var(--border);color:var(--text);padding:3px 8px;border-radius:4px"
+                 ${!APP.isAdmin ? 'disabled' : ''}></td>
+            <td><input type="time" id="shift-fa-end" value="${fri.afternoon.end}"
+                 style="background:var(--bg-4);border:1px solid var(--border);color:var(--text);padding:3px 8px;border-radius:4px"
+                 ${!APP.isAdmin ? 'disabled' : ''}></td>
+            <td><input type="number" id="shift-fa-hours" value="${fri.afternoon.hours}" min="1" max="16"
+                 oninput="document.getElementById('shift-fa-eff').textContent=(+this.value-1)+'h ef.'"
+                 style="width:65px;background:var(--bg-4);border:1px solid var(--border);color:var(--text);padding:3px 8px;border-radius:4px"
+                 ${!APP.isAdmin ? 'disabled' : ''}></td>
+            <td id="shift-fa-eff" style="color:var(--green);font-family:var(--font-mono)">${fri.afternoon.hours - 1}h ef.</td>
           </tr>
         </tbody>
       </table></div>
@@ -1113,16 +1172,17 @@ window.saveGHConfig = function() {
 
 window.saveHoursLimits = function() {
   if (!APP.isAdmin) { window.showToast('🔒 Requiere modo Administrador.', 'warning'); return; }
-  document.querySelectorAll('.hours-limit-input').forEach(inp => {
-    const uid = parseInt(inp.dataset.uid);
-    const val = parseInt(inp.value);
-    if (!isNaN(uid) && !isNaN(val) && val > 0) {
-      APP.userHoursLimits[uid] = val;
-    }
-  });
+  const input = document.getElementById('general-hours-limit');
+  const val   = parseInt(input?.value);
+  if (isNaN(val) || val <= 0) {
+    window.showToast('Introduce un límite general válido (> 0).', 'warning'); return;
+  }
+  // Límite general común; el prorrateo por técnico se calcula sobre este valor.
+  APP.userHoursLimits = { general: val };
   window.saveUserHoursLimits(APP.userHoursLimits);
   window.syncAllToGitHub(true);
-  window.showToast('✓ Límites de horas guardados y sincronizados.', 'success');
+  renderApp();
+  window.showToast(`✓ Límite general guardado: ${val}h/año (prorrateado por técnico).`, 'success');
 };
 
 window.saveShiftConfig = function() {
@@ -1133,23 +1193,35 @@ window.saveShiftConfig = function() {
   const aStart = document.getElementById('shift-a-start')?.value;
   const aEnd   = document.getElementById('shift-a-end')?.value;
   const aHours = parseInt(document.getElementById('shift-a-hours')?.value);
-  if (!mStart || !mEnd || !aStart || !aEnd || isNaN(mHours) || isNaN(aHours)) {
+  // Viernes (jornada propia)
+  const fmStart = document.getElementById('shift-fm-start')?.value;
+  const fmEnd   = document.getElementById('shift-fm-end')?.value;
+  const fmHours = parseInt(document.getElementById('shift-fm-hours')?.value);
+  const faStart = document.getElementById('shift-fa-start')?.value;
+  const faEnd   = document.getElementById('shift-fa-end')?.value;
+  const faHours = parseInt(document.getElementById('shift-fa-hours')?.value);
+  if (!mStart || !mEnd || !aStart || !aEnd || isNaN(mHours) || isNaN(aHours) ||
+      !fmStart || !fmEnd || !faStart || !faEnd || isNaN(fmHours) || isNaN(faHours)) {
     window.showToast('Completa todos los campos de horario.', 'warning'); return;
   }
-  if (mHours < 1 || aHours < 1) {
+  if (mHours < 1 || aHours < 1 || fmHours < 1 || faHours < 1) {
     window.showToast('Las horas presenciales deben ser ≥ 1.', 'warning'); return;
   }
   const newShifts = {
     morning:   { start: mStart, end: mEnd,   hours: mHours },
-    afternoon: { start: aStart, end: aEnd,   hours: aHours }
+    afternoon: { start: aStart, end: aEnd,   hours: aHours },
+    friday: {
+      morning:   { start: fmStart, end: fmEnd, hours: fmHours },
+      afternoon: { start: faStart, end: faEnd, hours: faHours }
+    }
   };
   APP.shifts = newShifts;
   window.saveShiftsLocal(newShifts);
   window.syncAllToGitHub(true);
   renderApp();
   window.showToast(
-    `✓ Horarios actualizados — Mañana ${mStart}–${mEnd} (${mHours-1}h ef.) · Tarde ${aStart}–${aEnd} (${aHours-1}h ef.)`,
-    'success', 5000
+    `✓ Horarios actualizados — L–J: Mañana ${mStart}–${mEnd} (${mHours-1}h ef.) · Tarde ${aStart}–${aEnd} (${aHours-1}h ef.) | Viernes: Mañana ${fmStart}–${fmEnd} (${fmHours-1}h ef.) · Tarde ${faStart}–${faEnd} (${faHours-1}h ef.)`,
+    'success', 6000
   );
 };
 
