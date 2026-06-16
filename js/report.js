@@ -158,10 +158,17 @@ function calcAccumulatedHours(userId, joinDate2026Str, schedule, vacations, holi
   const PRE_END     = '2026-07-05'; // último día antes de turnos
   const TURNS_START_D = window.parseLocalDate(TURNS_START);
 
-  // Horas efectivas por turno: de APP.shifts si está configurado, o fallback 8h
+  // Horas efectivas por turno: usa effHours si está configurado; si no,
+  // presenciales − 1h; y como último recurso el valor estándar.
   const shiftCfg   = (typeof APP !== 'undefined' && APP.shifts) || null;
-  const mEffective = (shiftCfg?.morning?.hours   > 0) ? shiftCfg.morning.hours   - 1 : HOURS_EFFECTIVE_PER_SHIFT;
-  const aEffective = (shiftCfg?.afternoon?.hours > 0) ? shiftCfg.afternoon.hours - 1 : HOURS_EFFECTIVE_PER_SHIFT;
+  const effFrom = (s) => {
+    if (!s) return HOURS_EFFECTIVE_PER_SHIFT;
+    if (s.effHours != null && s.effHours !== '') return s.effHours;
+    if (s.hours > 0) return s.hours - 1;
+    return HOURS_EFFECTIVE_PER_SHIFT;
+  };
+  const mEffective = effFrom(shiftCfg?.morning);
+  const aEffective = effFrom(shiftCfg?.afternoon);
 
   // Fecha efectiva de alta en 2026
   const effectiveStart = (!joinDate2026Str || joinDate2026Str <= YEAR_START)
@@ -192,8 +199,8 @@ function calcAccumulatedHours(userId, joinDate2026Str, schedule, vacations, holi
     // El viernes puede tener horario propio (salida anticipada).
     let mEff = mEffective, aEff = aEffective;
     if (d.getDay() === 5 && shiftCfg?.friday) {
-      if (shiftCfg.friday.morning?.hours   > 0) mEff = shiftCfg.friday.morning.hours   - 1;
-      if (shiftCfg.friday.afternoon?.hours > 0) aEff = shiftCfg.friday.afternoon.hours - 1;
+      if (shiftCfg.friday.morning)   mEff = effFrom(shiftCfg.friday.morning);
+      if (shiftCfg.friday.afternoon) aEff = effFrom(shiftCfg.friday.afternoon);
     }
     if (inMorning)   turnHours += mEff;
     if (inAfternoon) turnHours += aEff;

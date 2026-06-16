@@ -905,6 +905,12 @@ function renderSettingsView() {
     afternoon: { ...shifts.afternoon }
   };
 
+  // Horas efectivas configuradas (editables). Si no hay valor guardado se
+  // propone presenciales − 1h (descanso de comida por defecto).
+  const effOf = (s) => (s && s.effHours != null && s.effHours !== '') ? s.effHours : (s ? s.hours - 1 : 0);
+  // Formato es-ES con coma decimal (8,5).
+  const fh    = (v) => (Math.round((+v) * 100) / 100).toString().replace('.', ',');
+
   const ghToken  = window.getGHToken ? window.getGHToken() : '';
   const ghRepo   = window.getGHRepo  ? window.getGHRepo()  : 'alemadrid/Turnos-IAM';
   const syncBadge = ghToken
@@ -1087,8 +1093,9 @@ function renderSettingsView() {
     <section class="section-card">
       <h2 class="section-title">🕐 Horarios de Turno</h2>
       <p class="section-desc">
-        Horas presenciales de cada turno. <strong>Horas efectivas = presenciales − 1h descanso</strong>.
-        Reducir las horas ajusta el cómputo anual en los informes.
+        Horas presenciales de cada turno (admiten <strong>fracciones</strong>, p. ej. 8,5 = 8h 30min).
+        Las <strong>horas efectivas son editables</strong>: descuenta el descanso de comida según
+        se negocie (1h o media hora). Reducir las horas ajusta el cómputo anual en los informes.
         El <strong>viernes</strong> se configura aparte para permitir salir antes.
         ${!APP.isAdmin ? '<br><span style="opacity:.7">Activa el modo Administrador para editar.</span>' : ''}
       </p>
@@ -1104,11 +1111,13 @@ function renderSettingsView() {
             <td><input type="time" id="shift-m-end" value="${shifts.morning.end}"
                  style="background:var(--bg-4);border:1px solid var(--border);color:var(--text);padding:3px 8px;border-radius:4px"
                  ${!APP.isAdmin ? 'disabled' : ''}></td>
-            <td><input type="number" id="shift-m-hours" value="${shifts.morning.hours}" min="1" max="16"
-                 oninput="document.getElementById('shift-m-eff').textContent=(+this.value-1)+'h ef.'"
-                 style="width:65px;background:var(--bg-4);border:1px solid var(--border);color:var(--text);padding:3px 8px;border-radius:4px"
+            <td><input type="number" id="shift-m-hours" value="${fh(shifts.morning.hours)}" min="0.5" max="16" step="0.25"
+                 oninput="window.updateEffPreview('m', this.value)"
+                 style="width:75px;background:var(--bg-4);border:1px solid var(--border);color:var(--text);padding:3px 8px;border-radius:4px"
                  ${!APP.isAdmin ? 'disabled' : ''}></td>
-            <td id="shift-m-eff" style="color:var(--green);font-family:var(--font-mono)">${shifts.morning.hours - 1}h ef.</td>
+            <td><input type="number" id="shift-m-eff" value="${fh(effOf(shifts.morning))}" min="0" max="16" step="0.25"
+                 style="width:75px;background:var(--bg-4);border:1px solid var(--border);color:var(--green);font-family:var(--font-mono);padding:3px 8px;border-radius:4px"
+                 ${!APP.isAdmin ? 'disabled' : ''}> <span style="color:var(--green);font-size:.78rem">h ef.</span></td>
           </tr>
           <tr>
             <td><span style="color:var(--afternoon-col)">🌙 Tarde</span></td>
@@ -1118,11 +1127,13 @@ function renderSettingsView() {
             <td><input type="time" id="shift-a-end" value="${shifts.afternoon.end}"
                  style="background:var(--bg-4);border:1px solid var(--border);color:var(--text);padding:3px 8px;border-radius:4px"
                  ${!APP.isAdmin ? 'disabled' : ''}></td>
-            <td><input type="number" id="shift-a-hours" value="${shifts.afternoon.hours}" min="1" max="16"
-                 oninput="document.getElementById('shift-a-eff').textContent=(+this.value-1)+'h ef.'"
-                 style="width:65px;background:var(--bg-4);border:1px solid var(--border);color:var(--text);padding:3px 8px;border-radius:4px"
+            <td><input type="number" id="shift-a-hours" value="${fh(shifts.afternoon.hours)}" min="0.5" max="16" step="0.25"
+                 oninput="window.updateEffPreview('a', this.value)"
+                 style="width:75px;background:var(--bg-4);border:1px solid var(--border);color:var(--text);padding:3px 8px;border-radius:4px"
                  ${!APP.isAdmin ? 'disabled' : ''}></td>
-            <td id="shift-a-eff" style="color:var(--green);font-family:var(--font-mono)">${shifts.afternoon.hours - 1}h ef.</td>
+            <td><input type="number" id="shift-a-eff" value="${fh(effOf(shifts.afternoon))}" min="0" max="16" step="0.25"
+                 style="width:75px;background:var(--bg-4);border:1px solid var(--border);color:var(--green);font-family:var(--font-mono);padding:3px 8px;border-radius:4px"
+                 ${!APP.isAdmin ? 'disabled' : ''}> <span style="color:var(--green);font-size:.78rem">h ef.</span></td>
           </tr>
         </tbody>
       </table></div>
@@ -1138,11 +1149,13 @@ function renderSettingsView() {
             <td><input type="time" id="shift-fm-end" value="${fri.morning.end}"
                  style="background:var(--bg-4);border:1px solid var(--border);color:var(--text);padding:3px 8px;border-radius:4px"
                  ${!APP.isAdmin ? 'disabled' : ''}></td>
-            <td><input type="number" id="shift-fm-hours" value="${fri.morning.hours}" min="1" max="16"
-                 oninput="document.getElementById('shift-fm-eff').textContent=(+this.value-1)+'h ef.'"
-                 style="width:65px;background:var(--bg-4);border:1px solid var(--border);color:var(--text);padding:3px 8px;border-radius:4px"
+            <td><input type="number" id="shift-fm-hours" value="${fh(fri.morning.hours)}" min="0.5" max="16" step="0.25"
+                 oninput="window.updateEffPreview('fm', this.value)"
+                 style="width:75px;background:var(--bg-4);border:1px solid var(--border);color:var(--text);padding:3px 8px;border-radius:4px"
                  ${!APP.isAdmin ? 'disabled' : ''}></td>
-            <td id="shift-fm-eff" style="color:var(--green);font-family:var(--font-mono)">${fri.morning.hours - 1}h ef.</td>
+            <td><input type="number" id="shift-fm-eff" value="${fh(effOf(fri.morning))}" min="0" max="16" step="0.25"
+                 style="width:75px;background:var(--bg-4);border:1px solid var(--border);color:var(--green);font-family:var(--font-mono);padding:3px 8px;border-radius:4px"
+                 ${!APP.isAdmin ? 'disabled' : ''}> <span style="color:var(--green);font-size:.78rem">h ef.</span></td>
           </tr>
           <tr>
             <td><span style="color:var(--afternoon-col)">🌙 Tarde</span></td>
@@ -1152,11 +1165,13 @@ function renderSettingsView() {
             <td><input type="time" id="shift-fa-end" value="${fri.afternoon.end}"
                  style="background:var(--bg-4);border:1px solid var(--border);color:var(--text);padding:3px 8px;border-radius:4px"
                  ${!APP.isAdmin ? 'disabled' : ''}></td>
-            <td><input type="number" id="shift-fa-hours" value="${fri.afternoon.hours}" min="1" max="16"
-                 oninput="document.getElementById('shift-fa-eff').textContent=(+this.value-1)+'h ef.'"
-                 style="width:65px;background:var(--bg-4);border:1px solid var(--border);color:var(--text);padding:3px 8px;border-radius:4px"
+            <td><input type="number" id="shift-fa-hours" value="${fh(fri.afternoon.hours)}" min="0.5" max="16" step="0.25"
+                 oninput="window.updateEffPreview('fa', this.value)"
+                 style="width:75px;background:var(--bg-4);border:1px solid var(--border);color:var(--text);padding:3px 8px;border-radius:4px"
                  ${!APP.isAdmin ? 'disabled' : ''}></td>
-            <td id="shift-fa-eff" style="color:var(--green);font-family:var(--font-mono)">${fri.afternoon.hours - 1}h ef.</td>
+            <td><input type="number" id="shift-fa-eff" value="${fh(effOf(fri.afternoon))}" min="0" max="16" step="0.25"
+                 style="width:75px;background:var(--bg-4);border:1px solid var(--border);color:var(--green);font-family:var(--font-mono);padding:3px 8px;border-radius:4px"
+                 ${!APP.isAdmin ? 'disabled' : ''}> <span style="color:var(--green);font-size:.78rem">h ef.</span></td>
           </tr>
         </tbody>
       </table></div>
@@ -1255,42 +1270,62 @@ window.saveVacationDaysConfig = function() {
 
 window.saveShiftConfig = function() {
   if (!APP.isAdmin) { window.showToast('🔒 Requiere modo Administrador.', 'warning'); return; }
+  const num = (id) => parseFloat(String(document.getElementById(id)?.value).replace(',', '.'));
   const mStart = document.getElementById('shift-m-start')?.value;
   const mEnd   = document.getElementById('shift-m-end')?.value;
-  const mHours = parseInt(document.getElementById('shift-m-hours')?.value);
+  const mHours = num('shift-m-hours');
+  const mEff   = num('shift-m-eff');
   const aStart = document.getElementById('shift-a-start')?.value;
   const aEnd   = document.getElementById('shift-a-end')?.value;
-  const aHours = parseInt(document.getElementById('shift-a-hours')?.value);
+  const aHours = num('shift-a-hours');
+  const aEff   = num('shift-a-eff');
   // Viernes (jornada propia)
   const fmStart = document.getElementById('shift-fm-start')?.value;
   const fmEnd   = document.getElementById('shift-fm-end')?.value;
-  const fmHours = parseInt(document.getElementById('shift-fm-hours')?.value);
+  const fmHours = num('shift-fm-hours');
+  const fmEff   = num('shift-fm-eff');
   const faStart = document.getElementById('shift-fa-start')?.value;
   const faEnd   = document.getElementById('shift-fa-end')?.value;
-  const faHours = parseInt(document.getElementById('shift-fa-hours')?.value);
+  const faHours = num('shift-fa-hours');
+  const faEff   = num('shift-fa-eff');
   if (!mStart || !mEnd || !aStart || !aEnd || isNaN(mHours) || isNaN(aHours) ||
-      !fmStart || !fmEnd || !faStart || !faEnd || isNaN(fmHours) || isNaN(faHours)) {
+      !fmStart || !fmEnd || !faStart || !faEnd || isNaN(fmHours) || isNaN(faHours) ||
+      isNaN(mEff) || isNaN(aEff) || isNaN(fmEff) || isNaN(faEff)) {
     window.showToast('Completa todos los campos de horario.', 'warning'); return;
   }
-  if (mHours < 1 || aHours < 1 || fmHours < 1 || faHours < 1) {
-    window.showToast('Las horas presenciales deben ser ≥ 1.', 'warning'); return;
+  if (mHours < 0.5 || aHours < 0.5 || fmHours < 0.5 || faHours < 0.5) {
+    window.showToast('Las horas presenciales deben ser ≥ 0,5.', 'warning'); return;
+  }
+  if (mEff < 0 || aEff < 0 || fmEff < 0 || faEff < 0 ||
+      mEff > mHours || aEff > aHours || fmEff > fmHours || faEff > faHours) {
+    window.showToast('Las horas efectivas deben estar entre 0 y las presenciales.', 'warning'); return;
   }
   const newShifts = {
-    morning:   { start: mStart, end: mEnd,   hours: mHours },
-    afternoon: { start: aStart, end: aEnd,   hours: aHours },
+    morning:   { start: mStart, end: mEnd,   hours: mHours, effHours: mEff },
+    afternoon: { start: aStart, end: aEnd,   hours: aHours, effHours: aEff },
     friday: {
-      morning:   { start: fmStart, end: fmEnd, hours: fmHours },
-      afternoon: { start: faStart, end: faEnd, hours: faHours }
+      morning:   { start: fmStart, end: fmEnd, hours: fmHours, effHours: fmEff },
+      afternoon: { start: faStart, end: faEnd, hours: faHours, effHours: faEff }
     }
   };
   APP.shifts = newShifts;
   window.saveShiftsLocal(newShifts);
   window.syncAllToGitHub(true);
   renderApp();
+  const fh = (v) => (Math.round(v * 100) / 100).toString().replace('.', ',');
   window.showToast(
-    `✓ Horarios actualizados — L–J: Mañana ${mStart}–${mEnd} (${mHours-1}h ef.) · Tarde ${aStart}–${aEnd} (${aHours-1}h ef.) | Viernes: Mañana ${fmStart}–${fmEnd} (${fmHours-1}h ef.) · Tarde ${faStart}–${faEnd} (${faHours-1}h ef.)`,
+    `✓ Horarios actualizados — L–J: Mañana ${mStart}–${mEnd} (${fh(mEff)}h ef.) · Tarde ${aStart}–${aEnd} (${fh(aEff)}h ef.) | Viernes: Mañana ${fmStart}–${fmEnd} (${fh(fmEff)}h ef.) · Tarde ${faStart}–${faEnd} (${fh(faEff)}h ef.)`,
     'success', 6000
   );
+};
+
+// Al cambiar las horas presenciales, propone unas efectivas por defecto
+// (presenciales − 1h de comida). El usuario puede ajustarlas después.
+window.updateEffPreview = function(prefix, presVal) {
+  const eff = document.getElementById(`shift-${prefix}-eff`);
+  if (!eff) return;
+  const p = parseFloat(String(presVal).replace(',', '.'));
+  if (!isNaN(p)) eff.value = String(Math.max(0, Math.round((p - 1) * 100) / 100)).replace('.', ',');
 };
 
 // ─── Edición de fechas de incorporación ──────────────────────
