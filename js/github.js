@@ -149,6 +149,7 @@ window.clearAllLocalData = function() {
   localStorage.removeItem('planturnos_joinDates_2026');
   localStorage.removeItem('planturnos_shifts_cfg');
   localStorage.removeItem('planturnos_hourslimits');
+  localStorage.removeItem('planturnos_vacdays');
   window.showToast('Datos locales eliminados. Recarga la página.', 'warning');
 };
 
@@ -344,6 +345,7 @@ async function _syncAllToGitHubImpl(silent) {
     { path: 'data/schedule.json',       data: window.loadScheduleLocal()     },
     { path: 'data/userStartDates.json', data: window.loadUserStartDates()    },
     { path: 'data/userHoursLimits.json',data: window.loadUserHoursLimits()   },
+    { path: 'data/userVacationDays.json',data: window.loadUserVacationDays()  },
     { path: 'data/shifts.json',         data: window.loadShiftsLocal() || {} }
   ];
 
@@ -367,13 +369,24 @@ async function _syncAllToGitHubImpl(silent) {
     return true;
   }
 
-  // Diagnóstico claro del token: si hay 401/403 el PAT no sirve o le falta
-  // el permiso Contents:Write; lo más probable es que haya caducado.
+  // Diagnóstico claro del fallo:
+  //  · 401/403 → token inválido o sin permiso de escritura.
+  //  · "Failed to fetch" (TypeError) → la petición de ESCRITURA (PUT) ni
+  //    siquiera llega a GitHub: la bloquea la red corporativa / proxy /
+  //    antivirus (permite leer pero no escribir). No es problema del token.
   const authIssue = failed.some(f => f.status === 401 || f.status === 403);
-  const msg = authIssue
-    ? '⚠ El token de GitHub no es válido o le falta el permiso «Contents: Write» (puede haber caducado). Genera uno nuevo en GitHub y vuelve a guardarlo.'
-    : `⚠ Sync parcial (${[...new Set(failed.map(f => f.reason))].join('; ')}). Pulsa «Sincronizar ahora» para reintentar.`;
-  window.showToast(msg, 'warning', 8000);
+  const netIssue  = failed.some(f => /failed to fetch|networkerror|load failed/i.test(f.reason || ''));
+  let msg;
+  if (netIssue) {
+    msg = '🚫 La escritura a GitHub está bloqueada por la red (proxy/firewall corporativo). ' +
+          'El token es correcto, pero la petición de guardado no llega a GitHub. ' +
+          'Prueba desde otra red (p. ej. datos del móvil) o pide a IT que permita escrituras a api.github.com.';
+  } else if (authIssue) {
+    msg = '⚠ El token de GitHub no es válido o le falta el permiso «Contents: Write» (puede haber caducado). Genera uno nuevo en GitHub y vuelve a guardarlo.';
+  } else {
+    msg = `⚠ Sync parcial (${[...new Set(failed.map(f => f.reason))].join('; ')}). Pulsa «Sincronizar ahora» para reintentar.`;
+  }
+  window.showToast(msg, 'warning', 9000);
   return false;
 };
 
@@ -474,6 +487,10 @@ window.diagnoseGHToken = async function() {
     }
   } catch (e) {
     lines.push(`3) Error de red al escribir: ${e.message}`);
+    lines.push('   → La petición de ESCRITURA (PUT) no llega a GitHub: la bloquea');
+    lines.push('     la red corporativa / proxy / antivirus (permite leer, no escribir).');
+    lines.push('   → No es el token. Prueba desde OTRA red (datos del móvil) para confirmarlo,');
+    lines.push('     o pide a IT que permita métodos de escritura a api.github.com.');
   }
 
   out(lines.join('\n'));
@@ -501,6 +518,18 @@ window.loadUserHoursLimits = function() {
 window.saveUserHoursLimits = function(data) {
   try { localStorage.setItem('planturnos_hourslimits', JSON.stringify(data)); }
   catch (e) { console.error('saveUserHoursLimits:', e); }
+};
+
+// ─── Dias naturales de vacaciones por tecnico (override editable) ─────────────
+window.loadUserVacationDays = function() {
+  try {
+    const raw = localStorage.getItem('planturnos_vacdays');
+    return raw ? JSON.parse(raw) : {};
+  } catch (e) { return {}; }
+};
+window.saveUserVacationDays = function(data) {
+  try { localStorage.setItem('planturnos_vacdays', JSON.stringify(data)); }
+  catch (e) { console.error('saveUserVacationDays:', e); }
 };
 
 /**

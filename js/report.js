@@ -117,6 +117,36 @@ function getGeneralAnnualLimit() {
 }
 window.getGeneralAnnualLimit = getGeneralAnnualLimit;
 
+// Vacaciones: 31 días naturales/año, prorrateados por fecha de incorporación.
+const VACATION_DAYS_FULL_YEAR = 31;
+const NATURAL_DAYS_2026       = 365; // 2026 no es bisiesto
+
+/**
+ * Días naturales de vacaciones prorrateados según la fecha de incorporación.
+ * Año completo (alta ≤ 1 ene) = 31 días; en caso contrario proporcional a los
+ * días naturales restantes del año.
+ */
+function calcProratedVacationDays(startStr) {
+  if (!startStr || startStr <= '2026-01-01') return VACATION_DAYS_FULL_YEAR;
+  if (startStr > '2026-12-31') return 0;
+  const s = window.parseLocalDate(startStr);
+  const e = window.parseLocalDate('2026-12-31');
+  const naturalDays = Math.round((e - s) / (1000 * 60 * 60 * 24)) + 1;
+  return Math.round(VACATION_DAYS_FULL_YEAR * naturalDays / NATURAL_DAYS_2026);
+}
+window.calcProratedVacationDays = calcProratedVacationDays;
+
+/**
+ * Derecho de vacaciones (días naturales) de un técnico: el override editable
+ * de APP.userVacationDays si existe, o el prorrateo por defecto.
+ */
+function getVacationEntitlement(userId, startStr) {
+  const ov = (typeof APP !== 'undefined' && APP.userVacationDays && APP.userVacationDays[userId]);
+  const n  = parseInt(ov);
+  return (!isNaN(n) && n >= 0) ? n : calcProratedVacationDays(startStr);
+}
+window.getVacationEntitlement = getVacationEntitlement;
+
 /**
  * Calcula las horas acumuladas reales de un técnico:
  *   Periodo A: jornada previa (joinDate2026 → 5 jul 2026) = 8h/día trabajado
@@ -202,6 +232,8 @@ window.generateEquityReport = function(users, schedule, vacations, holidays) {
       hoursProportional: calcProportionalHours(effectiveStart, userLimit),
       hoursPreTurns:    0,
       hoursTurns:       0,
+      vacationEntitled:  getVacationEntitlement(u.id, effectiveStart),
+      hoursVacation:    0,
       hoursTotal:       0,
       hoursDiff:        0,
       hoursStatus:      'ok',
@@ -224,7 +256,16 @@ window.generateEquityReport = function(users, schedule, vacations, holidays) {
     const acc       = calcAccumulatedHours(u.id, m.joinDate2026, schedule, vacations, holidays);
     m.hoursPreTurns = acc.preHours;
     m.hoursTurns    = acc.turnHours;
-    m.hoursTotal    = acc.total;
+
+    // Descuento por vacaciones que el técnico disfrutará SÍ o SÍ pero que aún
+    // no están en el calendario: días de derecho − días ya registrados. Se
+    // convierte a horas de trabajo efectivo (los días naturales contienen ~5/7
+    // de días laborables, 8h cada uno) para no contar fines de semana.
+    const vacUsedNatural    = m.vacationDays; // días naturales ya en calendario
+    const pendingNaturalVac = Math.max(0, m.vacationEntitled - vacUsedNatural);
+    m.hoursVacation = Math.round(pendingNaturalVac * (5 / 7) * HOURS_EFFECTIVE_PRE_TURNS);
+
+    m.hoursTotal    = Math.max(0, acc.total - m.hoursVacation);
     m.hoursDiff     = m.hoursTotal - m.hoursProportional;
 
     // Estado de horas

@@ -15,6 +15,7 @@ window.APP = {
   auditTrail:      [],
   userStartDates:  {},   // overrides de fecha de inicio por técnico
   userHoursLimits: {},   // límites de horas anuales por técnico
+  userVacationDays:{},   // días naturales de vacaciones por técnico (override)
   shifts:          null, // horarios de turno configurables
   isAdmin:         false,
   currentView:     'dashboard'
@@ -42,7 +43,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 // Antídoto #1: cache-busting. Antídoto #2: NUNCA guardar config en localStorage.
 async function loadStaticData() {
   const ts = Date.now();
-  const [cfgRes, usersRes, holidaysRes, vacRes, schedRes, startDatesRes, hoursLimitsRes, shiftsRes] =
+  const [cfgRes, usersRes, holidaysRes, vacRes, schedRes, startDatesRes, hoursLimitsRes, vacDaysRes, shiftsRes] =
     await Promise.all([
       fetch(`data/config.json?v=${ts}`),
       fetch(`data/users.json?v=${ts}`),
@@ -51,6 +52,7 @@ async function loadStaticData() {
       fetch(`data/schedule.json?v=${ts}`),
       fetch(`data/userStartDates.json?v=${ts}`),
       fetch(`data/userHoursLimits.json?v=${ts}`),
+      fetch(`data/userVacationDays.json?v=${ts}`),
       fetch(`data/shifts.json?v=${ts}`)
     ]);
   if (!cfgRes.ok)      throw new Error('No se pudo cargar config.json');
@@ -67,6 +69,7 @@ async function loadStaticData() {
   APP._remoteSchedule    = await safeJson(schedRes);
   APP._remoteStartDates  = await safeJson(startDatesRes);
   APP._remoteHoursLimits = await safeJson(hoursLimitsRes);
+  APP._remoteVacationDays= await safeJson(vacDaysRes);
   const remoteShiftsRaw  = await safeJson(shiftsRes);
   APP._remoteShifts      = remoteShiftsRaw && Object.keys(remoteShiftsRaw).length ? remoteShiftsRaw : null;
 }
@@ -76,6 +79,7 @@ function loadOperationalData() {
   const localSched  = window.loadScheduleLocal();
   const localStart  = window.loadUserStartDates();
   const localLimits = window.loadUserHoursLimits();
+  const localVacDays= window.loadUserVacationDays();
   const localShifts = window.loadShiftsLocal();
 
   // Prioridad: localStorage (sesión del admin) > datos remotos (GitHub Pages)
@@ -84,6 +88,7 @@ function loadOperationalData() {
   APP.schedule       = Object.keys(localSched).length  ? localSched  : (APP._remoteSchedule    || {});
   APP.userStartDates = Object.keys(localStart).length  ? localStart  : (APP._remoteStartDates  || {});
   APP.userHoursLimits= Object.keys(localLimits).length ? localLimits : (APP._remoteHoursLimits || {});
+  APP.userVacationDays= Object.keys(localVacDays).length ? localVacDays : (APP._remoteVacationDays || {});
   APP.shifts         = localShifts || APP._remoteShifts || APP.config?.shifts ||
     { morning: { start: '08:00', end: '17:00', hours: 9 }, afternoon: { start: '15:00', end: '24:00', hours: 9 } };
 
@@ -99,6 +104,8 @@ function loadOperationalData() {
     window.saveUserStartDates(APP.userStartDates);
   if (!Object.keys(localLimits).length && Object.keys(APP.userHoursLimits).length)
     window.saveUserHoursLimits(APP.userHoursLimits);
+  if (!Object.keys(localVacDays).length && Object.keys(APP.userVacationDays).length)
+    window.saveUserVacationDays(APP.userVacationDays);
 
   // Compatibilidad: sincronizar joinDate2026 con el campo unificado
   try {
@@ -723,7 +730,7 @@ function renderReportView() {
             <div class="hours-limit-mark" title="Límite proporcional: ${m.hoursProportional}h"></div>
           </div>
           <div class="hours-nums">
-            <span class="hours-val ${hClass}" title="Jornada previa: ${m.hoursPreTurns}h + Turnos: ${m.hoursTurns}h">
+            <span class="hours-val ${hClass}" title="Jornada previa: ${m.hoursPreTurns}h + Turnos: ${m.hoursTurns}h − Vacaciones pendientes: ${m.hoursVacation || 0}h">
               ${m.hoursTotal}h
             </span>
             <span class="hours-prop">/ ${m.hoursProportional}h</span>
@@ -917,10 +924,22 @@ function renderSettingsView() {
     const resetBtn = (APP.isAdmin && isOverride)
       ? `<button class="btn-del" style="font-size:.75rem;padding:2px 8px;margin-left:4px"
                onclick="resetStartDate(${u.id})" title="Restablecer">✕</button>` : '';
+    // Días naturales de vacaciones: override editable o prorrateo de 31 días.
+    const vacDefault = window.calcProratedVacationDays
+      ? window.calcProratedVacationDays(effStart) : 31;
+    const vacOverride = APP.userVacationDays && APP.userVacationDays[u.id];
+    const vacValue = (vacOverride !== undefined && vacOverride !== null && vacOverride !== '')
+      ? vacOverride : vacDefault;
+    const vacCell = APP.isAdmin
+      ? `<input type="number" id="vacdays-${u.id}" value="${vacValue}" min="0" max="40"
+               style="width:60px;background:var(--bg-4);border:1px solid var(--border);
+                      color:var(--text);padding:3px 6px;border-radius:4px;text-align:center">`
+      : `<span class="mono">${vacValue}</span>`;
     return `<tr>
       <td>${u.name}</td>
       <td class="mono">${u.joinDate || '—'}</td>
       <td class="mono">${effStart}</td>
+      <td>${vacCell}</td>
       <td>${badge}</td>
       <td>${editBtn}${resetBtn}</td>
     </tr>`;
@@ -999,12 +1018,18 @@ function renderSettingsView() {
         Fecha de inicio de cómputo de cada técnico para <strong>todo 2026</strong>.
         Este campo determina el cálculo <strong>anual proporcional</strong>
         y el período hasta el <strong>6 de julio</strong>.
+        La columna <strong>Días vac. (naturales)</strong> es editable; su valor inicial
+        es el prorrateo de <strong>31 días naturales</strong> según la fecha de incorporación.
+        Las horas de esas vacaciones pendientes se <strong>descuentan del cómputo anual</strong>.
         ${!APP.isAdmin ? '<br><span style="opacity:.7">Activa el modo Administrador para editar.</span>' : ''}
       </p>
       <div class="table-wrap"><table class="data-table">
-        <thead><tr><th>Técnico</th><th>joinDate (JSON)</th><th>Fecha efectiva cómputo</th><th>Estado</th><th></th></tr></thead>
+        <thead><tr><th>Técnico</th><th>joinDate (JSON)</th><th>Fecha efectiva cómputo</th><th>Días vac. (naturales)</th><th>Estado</th><th></th></tr></thead>
         <tbody>${startDateRows}</tbody>
       </table></div>
+      ${APP.isAdmin ? `<div class="toolbar" style="margin-top:10px">
+        <button class="btn-primary" onclick="saveVacationDaysConfig()">💾 Guardar días de vacaciones</button>
+      </div>` : ''}
     </section>
 
     <section class="section-card">
@@ -1186,6 +1211,22 @@ window.saveHoursLimits = function() {
   window.syncAllToGitHub(true);
   renderApp();
   window.showToast(`✓ Límite general guardado: ${val}h/año (prorrateado por técnico).`, 'success');
+};
+
+window.saveVacationDaysConfig = function() {
+  if (!APP.isAdmin) { window.showToast('🔒 Requiere modo Administrador.', 'warning'); return; }
+  const map = {};
+  APP.users.forEach(u => {
+    const input = document.getElementById(`vacdays-${u.id}`);
+    if (!input) return;
+    const val = parseInt(input.value);
+    if (!isNaN(val) && val >= 0) map[u.id] = val;
+  });
+  APP.userVacationDays = map;
+  window.saveUserVacationDays(map);
+  window.syncAllToGitHub(true);
+  renderApp();
+  window.showToast('✓ Días de vacaciones guardados. Las horas pendientes se descuentan del cómputo anual.', 'success');
 };
 
 window.saveShiftConfig = function() {
