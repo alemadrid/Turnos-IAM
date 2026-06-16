@@ -48,15 +48,16 @@
   }
 
   // ── Vacaciones aleatorias: bloques de semana (lun-vie) por técnico ──
+  // 23 días LABORABLES de vacaciones para todos (no cuentan fines de semana).
   function buildRandomVacations(users, holidays) {
     const vacations = {};
     users.forEach(u => {
-      const target = 31; // días naturales de vacaciones (año completo)
+      const target = 23; // días laborables de vacaciones (todos por igual)
       const ranges = [];
       const usedWeeks = new Set();
-      let assignedNatural = 0;
+      let assignedWorking = 0;
       let guard = 0;
-      while (assignedNatural < target && guard < 80) {
+      while (assignedWorking < target && guard < 80) {
         guard++;
         // Semana aleatoria del año
         const week = 1 + Math.floor(Math.random() * 50);
@@ -68,19 +69,39 @@
         const toMon = dow === 0 ? 1 : (dow === 1 ? 0 : 8 - dow);
         const monday = new Date(approx.getFullYear(), approx.getMonth(), approx.getDate() + toMon);
         if (monday.getFullYear() !== YEAR) continue;
-        const remaining = target - assignedNatural;
-        // Bloque de 5..9 días naturales (≈ 1 semana o algo más), sin pasarse del total
-        const blockLen = Math.max(3, Math.min(9, remaining, 5 + Math.floor(Math.random() * 5)));
-        const end = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + (blockLen - 1));
+        const remaining = target - assignedWorking;
+        // Bloque de 1..5 días laborables (lun-vie)
+        const blockLen = Math.max(1, Math.min(5, remaining, 2 + Math.floor(Math.random() * 4)));
+        const friOffset = blockLen - 1;
+        const end = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + friOffset);
         const startStr = window.formatDateLocal(monday);
         const endStr   = window.formatDateLocal(end);
+        const wd = countWorkingDays(startStr, endStr, holidays);
+        if (wd === 0) continue;
         ranges.push({ start: startStr, end: endStr });
-        assignedNatural += blockLen;
+        assignedWorking += wd;
       }
       ranges.sort((a, b) => a.start.localeCompare(b.start));
       vacations[u.id] = ranges;
     });
     return vacations;
+  }
+
+  // ── Cumpleaños aleatorio por técnico (un día laborable del año) ──
+  // El día del cumpleaños se libra el 25% de la jornada (solo trabaja el 75%).
+  function buildRandomBirthdays(users) {
+    const birthdays = {};
+    users.forEach(u => {
+      let bd;
+      let guard = 0;
+      do {
+        const day = new Date(YEAR, Math.floor(Math.random() * 12), 1 + Math.floor(Math.random() * 28));
+        bd = window.formatDateLocal(day);
+        guard++;
+      } while (window.parseLocalDate(bd).getDay() % 6 === 0 && guard < 30); // evitar finde si se puede
+      birthdays[u.id] = bd;
+    });
+    return birthdays;
   }
 
   // ── Genera la simulación completa del año ──
@@ -90,6 +111,7 @@
 
     const holidays  = build2027Holidays();
     const vacations = buildRandomVacations(users, holidays);
+    const birthdays = buildRandomBirthdays(users);
     const config    = APP.config || { algorithmWeights: { consecutiveAfternoonPenalty: 10, afternoonCountMonthlyLimit: 3, seniorStandardBonus: 5, vacationEquityWeight: 3 } };
     const shiftCfg  = APP.shifts || (config.shifts) ||
       { morning: { start: '08:00', end: '17:00', hours: 9 }, afternoon: { start: '15:00', end: '24:00', hours: 9 } };
@@ -104,9 +126,10 @@
     const summary = users.map(u => ({
       id: u.id, name: u.name, profile: u.profile,
       morning: 0, afternoon: 0, total: 0,
-      vacTotal: 31,
+      vacTotal: 23,
       vacAssigned: window.getVacationDaysUsed(u.id, vacations),
       vacWorkingDays: 0,
+      birthday: birthdays[u.id], birthdayHoursOff: 0,
       maxHours, workedHours: 0, diff: 0, status: 'ok', equity: 0
     }));
     const byId = {};
@@ -117,11 +140,17 @@
       const isFri = window.parseLocalDate(dateStr).getDay() === 5;
       (day.morning || []).forEach(uid => {
         const s = byId[uid]; if (!s) return;
-        s.morning++; s.workedHours += shiftEff(shiftCfg, isFri, 'morning');
+        s.morning++;
+        const h = shiftEff(shiftCfg, isFri, 'morning');
+        s.workedHours += h;
+        if (s.birthday === dateStr) { const off = h * 0.25; s.workedHours -= off; s.birthdayHoursOff += off; }
       });
       (day.afternoon || []).forEach(uid => {
         const s = byId[uid]; if (!s) return;
-        s.afternoon++; s.workedHours += shiftEff(shiftCfg, isFri, 'afternoon');
+        s.afternoon++;
+        const h = shiftEff(shiftCfg, isFri, 'afternoon');
+        s.workedHours += h;
+        if (s.birthday === dateStr) { const off = h * 0.25; s.workedHours -= off; s.birthdayHoursOff += off; }
       });
     });
 
@@ -134,6 +163,7 @@
 
     summary.forEach(s => {
       s.total       = s.morning + s.afternoon;
+      s.birthdayHoursOff = Math.round(s.birthdayHoursOff * 10) / 10;
       s.workedHours = Math.round(s.workedHours * 10) / 10;
       s.diff        = Math.round((s.workedHours - s.maxHours) * 10) / 10;
       const pct     = s.maxHours > 0 ? s.workedHours / s.maxHours : 0;
@@ -143,7 +173,7 @@
     });
 
     window._sim2027 = {
-      schedule, vacations, holidays, shiftCfg, summary,
+      schedule, vacations, birthdays, holidays, shiftCfg, summary,
       month: 0, contingencies: gen.contingencies || []
     };
     return window._sim2027;
@@ -153,7 +183,7 @@
   function renderSimCalendar(month) {
     const sim = window._sim2027;
     if (!sim) return '<p>Sin datos de simulación.</p>';
-    const { schedule, holidays, vacations, shiftCfg } = sim;
+    const { schedule, holidays, vacations, shiftCfg, birthdays } = sim;
 
     const lastDay  = new Date(YEAR, month + 1, 0);
     let startDow   = new Date(YEAR, month, 1).getDay();
@@ -197,12 +227,15 @@
         const holBadge  = holType ? `<span class="cell-hol-tag hol-${holType}" data-tip="${holName}">${holType==='alicante'?'🎆':'🇪🇸'}</span>` : '';
         const vacBadge  = vacUsers.length > 0
           ? `<span class="cell-vac-ico" data-tip="De vacaciones:&#10;${vacUsers.map(u=>u.name).join('&#10;')}">🏖${vacUsers.length}</span>` : '';
+        const bdUsers   = (APP.users || []).filter(u => (birthdays || {})[u.id] === dateStr);
+        const bdBadge   = bdUsers.length > 0
+          ? `<span class="cell-vac-ico" data-tip="Cumpleaños (25% jornada libre):&#10;${bdUsers.map(u=>u.name).join('&#10;')}">🎂${bdUsers.length}</span>` : '';
         const mList = mIds.map(id =>
           `<div class="cell-tech morning-tech" data-tip="${uName(id)}">${uShort(id)}</div>`).join('');
         const aList = aIds.map(id =>
           `<div class="cell-tech afternoon-tech" data-tip="${uName(id)}">${uShort(id)}</div>`).join('');
         content = `
-          <div class="cell-meta-row">${holBadge}${vacBadge}</div>
+          <div class="cell-meta-row">${holBadge}${vacBadge}${bdBadge}</div>
           <div class="cell-shift-block">
             <div class="cell-shift-hdr morning-hdr" data-tip="☀ Mañana (${shiftLabel(shiftCfg, isFri, 'morning')}):&#10;${mAllNames}">☀ <span class="cell-shift-count">${mIds.length}</span></div>
             ${mList}
@@ -266,14 +299,16 @@
         ? `<span class="hours-diff-over">+${s.diff}h</span>`
         : s.diff < 0 ? `<span class="hours-diff-under">${s.diff}h</span>`
         : `<span class="hours-diff-ok">±0h</span>`;
-      const vacWarn = s.vacAssigned > s.vacTotal ? ' style="color:var(--orange)"' : '';
+      const vacWarn = s.vacWorkingDays > s.vacTotal ? ' style="color:var(--orange)"' : '';
+      const bdStr = s.birthday ? `${s.birthday.slice(8,10)}/${s.birthday.slice(5,7)}` : '—';
       return `<tr>
         <td>${s.name} <span style="font-size:.7rem;color:var(--text-muted)">${s.profile}</span></td>
         <td class="num">${s.morning}</td>
         <td class="num">${s.afternoon}</td>
         <td class="num">${s.total}</td>
         <td class="num">${s.vacTotal}</td>
-        <td class="num"${vacWarn}>${s.vacAssigned}</td>
+        <td class="num"${vacWarn}>${s.vacWorkingDays}</td>
+        <td class="num" title="25% de la jornada librada (${s.birthdayHoursOff}h)">🎂 ${bdStr}</td>
         <td class="num">${s.maxHours}h</td>
         <td>
           <div class="hours-cell">
@@ -295,7 +330,7 @@
     // Totales agregados
     const totM   = sim.summary.reduce((a, s) => a + s.morning, 0);
     const totA   = sim.summary.reduce((a, s) => a + s.afternoon, 0);
-    const totVac = sim.summary.reduce((a, s) => a + s.vacAssigned, 0);
+    const totVac = sim.summary.reduce((a, s) => a + s.vacWorkingDays, 0);
     const overCount = sim.summary.filter(s => s.status === 'over').length;
 
     return `
@@ -307,7 +342,7 @@
       <div class="stats-grid">
         <div class="stat-card"><div class="stat-icon">☀</div><div class="stat-value">${totM}</div><div class="stat-label">Turnos de mañana (año)</div></div>
         <div class="stat-card"><div class="stat-icon">🌙</div><div class="stat-value">${totA}</div><div class="stat-label">Turnos de tarde (año)</div></div>
-        <div class="stat-card"><div class="stat-icon">🏖</div><div class="stat-value">${totVac}</div><div class="stat-label">Días vac. naturales asignados</div></div>
+        <div class="stat-card"><div class="stat-icon">🏖</div><div class="stat-value">${totVac}</div><div class="stat-label">Días vac. laborables asignados</div></div>
         <div class="stat-card ${overCount > 0 ? 'stat-warning' : ''}"><div class="stat-icon">⏱</div><div class="stat-value">${overCount}</div><div class="stat-label">Técnicos por encima del máximo</div></div>
       </div>
 
@@ -334,13 +369,15 @@
         <h2 class="section-title">📊 Resumen por técnico (año completo)</h2>
         <p class="section-desc">
           Horas máximas = límite anual general (${sim.summary[0] ? sim.summary[0].maxHours : 1782}h, año completo).
-          Horas efectivas = suma de turnos asignados según los horarios configurados.
+          Horas efectivas = suma de turnos asignados según los horarios configurados,
+          descontando el 25% de la jornada el día del cumpleaños 🎂.
           Un valor en rojo (+) indica que se pasaría del máximo anual.
         </p>
         <div class="table-wrap"><table class="data-table">
           <thead><tr>
             <th>Técnico</th><th>Mañanas</th><th>Tardes</th><th>Total turnos</th>
             <th>Días vac. totales</th><th>Días vac. asignados</th>
+            <th>Cumpleaños</th>
             <th>Horas máx.</th><th>Horas efectivas trabajadas</th><th>Score equidad</th>
           </tr></thead>
           <tbody>${rows}</tbody>
