@@ -933,8 +933,8 @@ function renderSettingsView() {
   // Horas efectivas configuradas (editables). Si no hay valor guardado se
   // propone presenciales − 1h (descanso de comida por defecto).
   const effOf = (s) => (s && s.effHours != null && s.effHours !== '') ? s.effHours : (s ? s.hours - 1 : 0);
-  // Formato es-ES con coma decimal (8,5).
-  const fh    = (v) => (Math.round((+v) * 100) / 100).toString().replace('.', ',');
+  // Formato es-ES con coma decimal (8,5). Vacío si no hay un número válido.
+  const fh    = (v) => { const n = +v; return isFinite(n) ? (Math.round(n * 100) / 100).toString().replace('.', ',') : ''; };
 
   const ghToken  = window.getGHToken ? window.getGHToken() : '';
   const ghRepo   = window.getGHRepo  ? window.getGHRepo()  : 'alemadrid/Turnos-IAM';
@@ -1005,15 +1005,49 @@ function renderSettingsView() {
     <div class="view-header"><h1 class="view-title">Configuración y Datos</h1>
       <p class="view-sub">Backup, restauración y ajustes</p></div>
 
-    <section class="section-card">
-      <h2 class="section-title">🔗 Sincronización GitHub ${syncBadge}</h2>
+    ${APP.isAdmin ? `
+    <section class="section-card" style="${window.hasPendingDownload && window.hasPendingDownload() ? 'border:1px solid var(--orange)' : ''}">
+      <h2 class="section-title">📦 Guardar y publicar cambios en GitHub</h2>
+      ${window.hasPendingDownload && window.hasPendingDownload()
+        ? `<div style="background:rgba(255,165,0,.12);border:1px solid var(--orange);border-radius:var(--radius);
+                 padding:10px 14px;margin-bottom:12px;color:var(--orange);font-size:.85rem">
+             ⚠ Tienes cambios guardados en este navegador <strong>pendientes de publicar</strong>.
+             Descarga los archivos y súbelos a GitHub para que el resto del equipo los vea.
+           </div>`
+        : `<div style="background:rgba(0,200,120,.10);border:1px solid var(--green);border-radius:var(--radius);
+                 padding:10px 14px;margin-bottom:12px;color:var(--green);font-size:.85rem">
+             ✓ Sin cambios pendientes de publicar.
+           </div>`}
       <p class="section-desc">
-        Conecta con el repositorio para que <strong>vacaciones, cuadrantes y configuraciones
-        sean visibles desde cualquier navegador</strong>.<br>
-        Necesitas un <a href="https://github.com/settings/tokens/new?scopes=repo&description=Turnos-IAM"
+        Tus cambios (turnos, vacaciones, configuración…) se guardan en <strong>este navegador</strong>.
+        Para publicarlos y que todos los vean, descarga los archivos y súbelos a mano al repositorio.
+      </p>
+      <ol style="font-size:.82rem;color:var(--text-muted);line-height:1.7;margin:0 0 12px 18px">
+        <li>Haz todos tus cambios en la app (se guardan automáticamente al pulsar cada «Guardar»).</li>
+        <li>Pulsa <strong>Descargar archivos de datos</strong> (se bajan 6 archivos <code>.json</code>).</li>
+        <li>Abre <a href="https://github.com/${ghRepo}/upload/main/data" target="_blank" style="color:var(--accent)">GitHub → carpeta <code>data/</code> → Add file → Upload files</a>.</li>
+        <li>Arrastra los archivos descargados (sobrescriben los anteriores).</li>
+        <li>Escribe un mensaje y pulsa <strong>Commit changes</strong>. Listo: el resto verá los cambios.</li>
+      </ol>
+      <div class="toolbar">
+        <button class="btn-primary" onclick="window.downloadGitHubDataFiles()">⬇ Descargar archivos de datos</button>
+        <a class="btn-secondary" href="https://github.com/${ghRepo}/upload/main/data" target="_blank"
+           style="text-decoration:none;display:inline-flex;align-items:center">↗ Abrir subida en GitHub</a>
+      </div>
+      <span style="font-size:.72rem;color:var(--text-muted);margin-top:6px;display:block">
+        El navegador puede pedir permiso para «descargar varios archivos»: acéptalo.
+      </span>
+    </section>` : ''}
+
+    <section class="section-card">
+      <h2 class="section-title">🔗 Sincronización GitHub automática <span style="font-weight:400;font-size:.8rem;color:var(--text-muted)">(avanzado / opcional)</span> ${syncBadge}</h2>
+      <p class="section-desc">
+        Solo si tu equipo/red <strong>permite escrituras a la API de GitHub</strong>. En este portátil
+        está bloqueada, así que usa la <strong>subida manual</strong> de arriba.<br>
+        Requiere un <a href="https://github.com/settings/tokens/new?scopes=repo&description=Turnos-IAM"
           target="_blank" style="color:var(--accent)">Personal Access Token (PAT)</a>
-        con permiso <code>Contents: Write</code> en el repo <code>${ghRepo}</code>.<br>
-        El token se guarda solo en este navegador y nunca se transmite a terceros.
+        con permiso <code>Contents: Write</code> en el repo <code>${ghRepo}</code>.
+        El token se guarda solo en este navegador.
         ${!APP.isAdmin ? '<br><span style="opacity:.7">Activa el modo Administrador para configurar.</span>' : ''}
       </p>
       ${APP.isAdmin ? `
@@ -1037,30 +1071,6 @@ function renderSettingsView() {
       <div id="gh-diag" style="margin-top:10px;font-family:var(--font-mono);font-size:.78rem;
            white-space:pre-wrap;color:var(--text-muted)"></div>` : ''}
     </section>
-
-    ${APP.isAdmin ? `
-    <section class="section-card">
-      <h2 class="section-title">📦 Subida manual a GitHub (sin conexión API)</h2>
-      <p class="section-desc">
-        Si el portátil bloquea la sincronización automática (proxy/antivirus corporativo),
-        usa este modo: haz todos tus cambios (turnos, vacaciones, configuración…),
-        descarga los archivos y súbelos a mano al repositorio.
-      </p>
-      <ol style="font-size:.82rem;color:var(--text-muted);line-height:1.7;margin:0 0 12px 18px">
-        <li>Pulsa <strong>Descargar archivos de datos</strong> (se bajan 6 archivos <code>.json</code>).</li>
-        <li>Abre <a href="https://github.com/${ghRepo}/upload/main/data" target="_blank" style="color:var(--accent)">GitHub → carpeta <code>data/</code> → Add file → Upload files</a>.</li>
-        <li>Arrastra los 6 archivos descargados (sobrescriben los anteriores).</li>
-        <li>Escribe un mensaje y pulsa <strong>Commit changes</strong>. Listo: el resto verá los cambios.</li>
-      </ol>
-      <div class="toolbar">
-        <button class="btn-primary" onclick="window.downloadGitHubDataFiles()">⬇ Descargar archivos de datos</button>
-        <a class="btn-secondary" href="https://github.com/${ghRepo}/upload/main/data" target="_blank"
-           style="text-decoration:none;display:inline-flex;align-items:center">↗ Abrir subida en GitHub</a>
-      </div>
-      <span style="font-size:.72rem;color:var(--text-muted);margin-top:6px;display:block">
-        El navegador puede pedir permiso para «descargar varios archivos»: acéptalo.
-      </span>
-    </section>` : ''}
 
     <section class="section-card">
       <h2 class="section-title">Backup de Datos</h2>
@@ -1142,11 +1152,11 @@ function renderSettingsView() {
             <td><input type="time" id="shift-m-end" value="${shifts.morning.end}"
                  style="background:var(--bg-4);border:1px solid var(--border);color:var(--text);padding:3px 8px;border-radius:4px"
                  ${!APP.isAdmin ? 'disabled' : ''}></td>
-            <td><input type="number" id="shift-m-hours" value="${fh(shifts.morning.hours)}" min="0.5" max="16" step="0.25"
+            <td><input type="text" inputmode="decimal" id="shift-m-hours" value="${fh(shifts.morning.hours)}"
                  oninput="window.updateEffPreview('m', this.value)"
                  style="width:75px;background:var(--bg-4);border:1px solid var(--border);color:var(--text);padding:3px 8px;border-radius:4px"
                  ${!APP.isAdmin ? 'disabled' : ''}></td>
-            <td><input type="number" id="shift-m-eff" value="${fh(effOf(shifts.morning))}" min="0" max="16" step="0.25"
+            <td><input type="text" inputmode="decimal" id="shift-m-eff" value="${fh(effOf(shifts.morning))}"
                  style="width:75px;background:var(--bg-4);border:1px solid var(--border);color:var(--green);font-family:var(--font-mono);padding:3px 8px;border-radius:4px"
                  ${!APP.isAdmin ? 'disabled' : ''}> <span style="color:var(--green);font-size:.78rem">h ef.</span></td>
           </tr>
@@ -1158,11 +1168,11 @@ function renderSettingsView() {
             <td><input type="time" id="shift-a-end" value="${shifts.afternoon.end}"
                  style="background:var(--bg-4);border:1px solid var(--border);color:var(--text);padding:3px 8px;border-radius:4px"
                  ${!APP.isAdmin ? 'disabled' : ''}></td>
-            <td><input type="number" id="shift-a-hours" value="${fh(shifts.afternoon.hours)}" min="0.5" max="16" step="0.25"
+            <td><input type="text" inputmode="decimal" id="shift-a-hours" value="${fh(shifts.afternoon.hours)}"
                  oninput="window.updateEffPreview('a', this.value)"
                  style="width:75px;background:var(--bg-4);border:1px solid var(--border);color:var(--text);padding:3px 8px;border-radius:4px"
                  ${!APP.isAdmin ? 'disabled' : ''}></td>
-            <td><input type="number" id="shift-a-eff" value="${fh(effOf(shifts.afternoon))}" min="0" max="16" step="0.25"
+            <td><input type="text" inputmode="decimal" id="shift-a-eff" value="${fh(effOf(shifts.afternoon))}"
                  style="width:75px;background:var(--bg-4);border:1px solid var(--border);color:var(--green);font-family:var(--font-mono);padding:3px 8px;border-radius:4px"
                  ${!APP.isAdmin ? 'disabled' : ''}> <span style="color:var(--green);font-size:.78rem">h ef.</span></td>
           </tr>
@@ -1180,11 +1190,11 @@ function renderSettingsView() {
             <td><input type="time" id="shift-fm-end" value="${fri.morning.end}"
                  style="background:var(--bg-4);border:1px solid var(--border);color:var(--text);padding:3px 8px;border-radius:4px"
                  ${!APP.isAdmin ? 'disabled' : ''}></td>
-            <td><input type="number" id="shift-fm-hours" value="${fh(fri.morning.hours)}" min="0.5" max="16" step="0.25"
+            <td><input type="text" inputmode="decimal" id="shift-fm-hours" value="${fh(fri.morning.hours)}"
                  oninput="window.updateEffPreview('fm', this.value)"
                  style="width:75px;background:var(--bg-4);border:1px solid var(--border);color:var(--text);padding:3px 8px;border-radius:4px"
                  ${!APP.isAdmin ? 'disabled' : ''}></td>
-            <td><input type="number" id="shift-fm-eff" value="${fh(effOf(fri.morning))}" min="0" max="16" step="0.25"
+            <td><input type="text" inputmode="decimal" id="shift-fm-eff" value="${fh(effOf(fri.morning))}"
                  style="width:75px;background:var(--bg-4);border:1px solid var(--border);color:var(--green);font-family:var(--font-mono);padding:3px 8px;border-radius:4px"
                  ${!APP.isAdmin ? 'disabled' : ''}> <span style="color:var(--green);font-size:.78rem">h ef.</span></td>
           </tr>
@@ -1196,11 +1206,11 @@ function renderSettingsView() {
             <td><input type="time" id="shift-fa-end" value="${fri.afternoon.end}"
                  style="background:var(--bg-4);border:1px solid var(--border);color:var(--text);padding:3px 8px;border-radius:4px"
                  ${!APP.isAdmin ? 'disabled' : ''}></td>
-            <td><input type="number" id="shift-fa-hours" value="${fh(fri.afternoon.hours)}" min="0.5" max="16" step="0.25"
+            <td><input type="text" inputmode="decimal" id="shift-fa-hours" value="${fh(fri.afternoon.hours)}"
                  oninput="window.updateEffPreview('fa', this.value)"
                  style="width:75px;background:var(--bg-4);border:1px solid var(--border);color:var(--text);padding:3px 8px;border-radius:4px"
                  ${!APP.isAdmin ? 'disabled' : ''}></td>
-            <td><input type="number" id="shift-fa-eff" value="${fh(effOf(fri.afternoon))}" min="0" max="16" step="0.25"
+            <td><input type="text" inputmode="decimal" id="shift-fa-eff" value="${fh(effOf(fri.afternoon))}"
                  style="width:75px;background:var(--bg-4);border:1px solid var(--border);color:var(--green);font-family:var(--font-mono);padding:3px 8px;border-radius:4px"
                  ${!APP.isAdmin ? 'disabled' : ''}> <span style="color:var(--green);font-size:.78rem">h ef.</span></td>
           </tr>
@@ -1301,33 +1311,41 @@ window.saveVacationDaysConfig = function() {
 
 window.saveShiftConfig = function() {
   if (!APP.isAdmin) { window.showToast('🔒 Requiere modo Administrador.', 'warning'); return; }
-  const num = (id) => parseFloat(String(document.getElementById(id)?.value).replace(',', '.'));
-  const mStart = document.getElementById('shift-m-start')?.value;
-  const mEnd   = document.getElementById('shift-m-end')?.value;
-  const mHours = num('shift-m-hours');
-  const mEff   = num('shift-m-eff');
-  const aStart = document.getElementById('shift-a-start')?.value;
-  const aEnd   = document.getElementById('shift-a-end')?.value;
-  const aHours = num('shift-a-hours');
-  const aEff   = num('shift-a-eff');
+  // Valores actuales como fallback para no borrar nada si un campo queda vacío.
+  const cur    = APP.shifts || {};
+  const curFri = cur.friday || { morning: cur.morning, afternoon: cur.afternoon };
+  const num = (id, fallback) => {
+    const n = parseFloat(String(document.getElementById(id)?.value ?? '').trim().replace(',', '.'));
+    return isFinite(n) ? n : fallback;
+  };
+  const txt = (id, fallback) => {
+    const v = document.getElementById(id)?.value;
+    return (v && v.trim()) ? v : fallback;
+  };
+  const effFb = (s, h) => (s && s.effHours != null) ? s.effHours : Math.max(0, (h || 0) - 1);
+
+  const mStart = txt('shift-m-start', cur.morning?.start);
+  const mEnd   = txt('shift-m-end',   cur.morning?.end);
+  const mHours = num('shift-m-hours', cur.morning?.hours);
+  const mEff   = num('shift-m-eff',   effFb(cur.morning, mHours));
+  const aStart = txt('shift-a-start', cur.afternoon?.start);
+  const aEnd   = txt('shift-a-end',   cur.afternoon?.end);
+  const aHours = num('shift-a-hours', cur.afternoon?.hours);
+  const aEff   = num('shift-a-eff',   effFb(cur.afternoon, aHours));
   // Viernes (jornada propia)
-  const fmStart = document.getElementById('shift-fm-start')?.value;
-  const fmEnd   = document.getElementById('shift-fm-end')?.value;
-  const fmHours = num('shift-fm-hours');
-  const fmEff   = num('shift-fm-eff');
-  const faStart = document.getElementById('shift-fa-start')?.value;
-  const faEnd   = document.getElementById('shift-fa-end')?.value;
-  const faHours = num('shift-fa-hours');
-  const faEff   = num('shift-fa-eff');
-  if (!mStart || !mEnd || !aStart || !aEnd || isNaN(mHours) || isNaN(aHours) ||
-      !fmStart || !fmEnd || !faStart || !faEnd || isNaN(fmHours) || isNaN(faHours) ||
-      isNaN(mEff) || isNaN(aEff) || isNaN(fmEff) || isNaN(faEff)) {
-    window.showToast('Completa todos los campos de horario.', 'warning'); return;
-  }
-  if (mHours < 0.5 || aHours < 0.5 || fmHours < 0.5 || faHours < 0.5) {
+  const fmStart = txt('shift-fm-start', curFri.morning?.start);
+  const fmEnd   = txt('shift-fm-end',   curFri.morning?.end);
+  const fmHours = num('shift-fm-hours', curFri.morning?.hours);
+  const fmEff   = num('shift-fm-eff',   effFb(curFri.morning, fmHours));
+  const faStart = txt('shift-fa-start', curFri.afternoon?.start);
+  const faEnd   = txt('shift-fa-end',   curFri.afternoon?.end);
+  const faHours = num('shift-fa-hours', curFri.afternoon?.hours);
+  const faEff   = num('shift-fa-eff',   effFb(curFri.afternoon, faHours));
+
+  if ([mHours, aHours, fmHours, faHours].some(v => !isFinite(v) || v < 0.5)) {
     window.showToast('Las horas presenciales deben ser ≥ 0,5.', 'warning'); return;
   }
-  if (mEff < 0 || aEff < 0 || fmEff < 0 || faEff < 0 ||
+  if ([mEff, aEff, fmEff, faEff].some(v => v < 0) ||
       mEff > mHours || aEff > aHours || fmEff > fmHours || faEff > faHours) {
     window.showToast('Las horas efectivas deben estar entre 0 y las presenciales.', 'warning'); return;
   }
@@ -1341,11 +1359,11 @@ window.saveShiftConfig = function() {
   };
   APP.shifts = newShifts;
   window.saveShiftsLocal(newShifts);
-  window.syncAllToGitHub(true);
+  window.markPendingDownload();
   renderApp();
   const fh = (v) => (Math.round(v * 100) / 100).toString().replace('.', ',');
   window.showToast(
-    `✓ Horarios actualizados — L–J: Mañana ${mStart}–${mEnd} (${fh(mEff)}h ef.) · Tarde ${aStart}–${aEnd} (${fh(aEff)}h ef.) | Viernes: Mañana ${fmStart}–${fmEnd} (${fh(fmEff)}h ef.) · Tarde ${faStart}–${faEnd} (${fh(faEff)}h ef.)`,
+    `✓ Horarios guardados — L–J: Mañana ${mStart}–${mEnd} (${fh(mEff)}h ef.) · Tarde ${aStart}–${aEnd} (${fh(aEff)}h ef.) | Viernes: Mañana ${fmStart}–${fmEnd} (${fh(fmEff)}h ef.) · Tarde ${faStart}–${faEnd} (${fh(faEff)}h ef.)`,
     'success', 6000
   );
 };

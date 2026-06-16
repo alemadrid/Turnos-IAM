@@ -138,6 +138,28 @@ window.downloadGitHubDataFiles = function() {
     }, i * 400);
   });
   window.showToast('⬇ Descargando 6 archivos. Súbelos a la carpeta data/ del repo en GitHub.', 'success', 7000);
+  window.clearPendingDownload();
+};
+
+// ─── Cambios pendientes de descargar/subir manualmente ───────────────────────
+// Como la sincronización automática por API está bloqueada en el portátil,
+// los guardados solo persisten en este navegador. Marcamos que hay cambios
+// pendientes de descargar para recordárselo al usuario.
+window.markPendingDownload = function() {
+  try { localStorage.setItem('planturnos_pending_download', '1'); } catch (e) {}
+  // Refresca la vista de configuración si está abierta (para mostrar el aviso).
+  if (typeof APP !== 'undefined' && APP.currentView === 'settings' && typeof renderApp === 'function') {
+    try { renderApp(); } catch (e) {}
+  }
+};
+window.hasPendingDownload = function() {
+  try { return localStorage.getItem('planturnos_pending_download') === '1'; } catch (e) { return false; }
+};
+window.clearPendingDownload = function() {
+  try { localStorage.removeItem('planturnos_pending_download'); } catch (e) {}
+  if (typeof APP !== 'undefined' && APP.currentView === 'settings' && typeof renderApp === 'function') {
+    try { renderApp(); } catch (e) {}
+  }
 };
 
 /**
@@ -357,6 +379,14 @@ window.ghWriteFile = async function(filePath, data) {
  */
 let _ghSyncQueue = Promise.resolve();
 window.syncAllToGitHub = function(silent = false) {
+  // Modo manual: los guardados automáticos (silent=true) NO intentan la red
+  // —el portátil bloquea las escrituras—; solo marcan que hay cambios para
+  // descargar y subir a mano. La sincronización por red solo se intenta cuando
+  // el usuario la pide explícitamente con el botón «Sincronizar ahora».
+  if (silent) {
+    window.markPendingDownload();
+    return Promise.resolve(false);
+  }
   const run = () => _syncAllToGitHubImpl(silent);
   // Encadenamos sobre la cola; capturamos errores para no romper la cadena.
   _ghSyncQueue = _ghSyncQueue.then(run, run);
