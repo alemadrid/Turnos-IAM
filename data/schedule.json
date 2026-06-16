@@ -1,1 +1,2176 @@
-{}
+{
+  "2026-07-06": {
+    "morning": [
+      2,
+      4,
+      5,
+      6,
+      7,
+      8
+    ],
+    "afternoon": [
+      3,
+      1
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-07-07": {
+    "morning": [
+      2,
+      4,
+      5,
+      6,
+      7,
+      8
+    ],
+    "afternoon": [
+      3,
+      1
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-07-08": {
+    "morning": [
+      2,
+      4,
+      5,
+      6,
+      7,
+      8
+    ],
+    "afternoon": [
+      3,
+      1
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-07-09": {
+    "morning": [
+      2,
+      4,
+      5,
+      6,
+      7,
+      8
+    ],
+    "afternoon": [
+      3,
+      1
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-07-10": {
+    "morning": [
+      2,
+      4,
+      5,
+      6,
+      7,
+      8
+    ],
+    "afternoon": [
+      3,
+      1
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-07-13": {
+    "morning": [
+      1,
+      3,
+      6,
+      8
+    ],
+    "afternoon": [
+      5,
+      4
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-07-14": {
+    "morning": [
+      1,
+      3,
+      6,
+      8
+    ],
+    "afternoon": [
+      5,
+      4
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-07-15": {
+    "morning": [
+      1,
+      3,
+      6,
+      8
+    ],
+    "afternoon": [
+      5,
+      4
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-07-16": {
+    "morning": [
+      1,
+      2,
+      3,
+      6,
+      8
+    ],
+    "afternoon": [
+      5,
+      4
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-07-17": {
+    "morning": [
+      1,
+      2,
+      3,
+      6,
+      8
+    ],
+    "afternoon": [
+      5,
+      4
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-07-20": {
+    "morning": [
+      1,
+      3,
+      4,
+      5,
+      7,
+      8
+    ],
+    "afternoon": [
+      6,
+      2
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-07-21": {
+    "morning": [
+      1,
+      3,
+      4,
+      5,
+      7,
+      8
+    ],
+    "afternoon": [
+      6,
+      2
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-07-22": {
+    "morning": [
+      1,
+      3,
+      4,
+      5,
+      7,
+      8
+    ],
+    "afternoon": [
+      6,
+      2
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-07-23": {
+    "morning": [
+      1,
+      3,
+      4,
+      5,
+      7,
+      8
+    ],
+    "afternoon": [
+      6,
+      2
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-07-24": {
+    "morning": [
+      1,
+      3,
+      4,
+      5,
+      7,
+      8
+    ],
+    "afternoon": [
+      6,
+      2
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-07-27": {
+    "morning": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "afternoon": [
+      7,
+      8
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-07-28": {
+    "morning": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "afternoon": [
+      7,
+      8
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-07-29": {
+    "morning": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "afternoon": [
+      7,
+      8
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-07-30": {
+    "morning": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "afternoon": [
+      7,
+      8
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-07-31": {
+    "morning": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ],
+    "afternoon": [
+      7,
+      8
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-08-03": {
+    "morning": [
+      2,
+      4,
+      5,
+      7,
+      8
+    ],
+    "afternoon": [
+      3,
+      1
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-08-04": {
+    "morning": [
+      2,
+      4,
+      5,
+      7,
+      8
+    ],
+    "afternoon": [
+      3,
+      1
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-08-05": {
+    "morning": [
+      2,
+      4,
+      5,
+      6,
+      7,
+      8
+    ],
+    "afternoon": [
+      3,
+      1
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-08-06": {
+    "morning": [
+      2,
+      4,
+      5,
+      6,
+      7,
+      8
+    ],
+    "afternoon": [
+      3,
+      1
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-08-07": {
+    "morning": [
+      2,
+      4,
+      5,
+      6,
+      7,
+      8
+    ],
+    "afternoon": [
+      3,
+      1
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-08-10": {
+    "morning": [
+      1,
+      3,
+      4,
+      6,
+      8
+    ],
+    "afternoon": [
+      5,
+      2
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-08-11": {
+    "morning": [
+      1,
+      3,
+      4,
+      6,
+      8
+    ],
+    "afternoon": [
+      5,
+      2
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-08-12": {
+    "morning": [
+      1,
+      3,
+      4,
+      6,
+      8
+    ],
+    "afternoon": [
+      5,
+      2
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-08-13": {
+    "morning": [
+      1,
+      3,
+      4,
+      6,
+      8
+    ],
+    "afternoon": [
+      5,
+      2
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-08-14": {
+    "morning": [
+      1,
+      3,
+      4,
+      6,
+      8
+    ],
+    "afternoon": [
+      5,
+      2
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-08-17": {
+    "morning": [
+      1,
+      2,
+      3,
+      5,
+      7,
+      8
+    ],
+    "afternoon": [
+      6,
+      4
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-08-18": {
+    "morning": [
+      1,
+      2,
+      3,
+      5,
+      7,
+      8
+    ],
+    "afternoon": [
+      6,
+      4
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-08-19": {
+    "morning": [
+      1,
+      2,
+      3,
+      5,
+      7,
+      8
+    ],
+    "afternoon": [
+      6,
+      4
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-08-20": {
+    "morning": [
+      1,
+      2,
+      3,
+      5,
+      7,
+      8
+    ],
+    "afternoon": [
+      6,
+      4
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-08-21": {
+    "morning": [
+      1,
+      2,
+      3,
+      5,
+      7,
+      8
+    ],
+    "afternoon": [
+      6,
+      4
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-08-24": {
+    "morning": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "afternoon": [
+      7,
+      8
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-08-25": {
+    "morning": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "afternoon": [
+      7,
+      8
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-08-26": {
+    "morning": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "afternoon": [
+      7,
+      8
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-08-27": {
+    "morning": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "afternoon": [
+      7,
+      8
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-08-28": {
+    "morning": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "afternoon": [
+      7,
+      8
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-08-31": {
+    "morning": [
+      2,
+      4,
+      5,
+      6,
+      7,
+      8
+    ],
+    "afternoon": [
+      3,
+      1
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-09-01": {
+    "morning": [
+      2,
+      4,
+      5,
+      6,
+      7,
+      8
+    ],
+    "afternoon": [
+      3,
+      1
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-09-02": {
+    "morning": [
+      2,
+      4,
+      5,
+      6,
+      7,
+      8
+    ],
+    "afternoon": [
+      3,
+      1
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-09-03": {
+    "morning": [
+      2,
+      4,
+      5,
+      6,
+      7,
+      8
+    ],
+    "afternoon": [
+      3,
+      1
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-09-04": {
+    "morning": [
+      2,
+      4,
+      5,
+      6,
+      7,
+      8
+    ],
+    "afternoon": [
+      3,
+      1
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-09-07": {
+    "morning": [
+      1,
+      3,
+      4,
+      6,
+      7,
+      8
+    ],
+    "afternoon": [
+      5,
+      2
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-09-08": {
+    "morning": [
+      1,
+      3,
+      4,
+      6,
+      7,
+      8
+    ],
+    "afternoon": [
+      5,
+      2
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-09-09": {
+    "morning": [
+      1,
+      3,
+      4,
+      6,
+      7,
+      8
+    ],
+    "afternoon": [
+      5,
+      2
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-09-10": {
+    "morning": [
+      1,
+      3,
+      4,
+      6,
+      7,
+      8
+    ],
+    "afternoon": [
+      5,
+      2
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-09-11": {
+    "morning": [
+      1,
+      3,
+      4,
+      6,
+      7,
+      8
+    ],
+    "afternoon": [
+      5,
+      2
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-09-14": {
+    "morning": [
+      1,
+      2,
+      3,
+      5,
+      7,
+      8
+    ],
+    "afternoon": [
+      6,
+      4
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-09-15": {
+    "morning": [
+      1,
+      2,
+      3,
+      5,
+      7,
+      8
+    ],
+    "afternoon": [
+      6,
+      4
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-09-16": {
+    "morning": [
+      1,
+      2,
+      3,
+      5,
+      7,
+      8
+    ],
+    "afternoon": [
+      6,
+      4
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-09-17": {
+    "morning": [
+      1,
+      2,
+      3,
+      5,
+      7,
+      8
+    ],
+    "afternoon": [
+      6,
+      4
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-09-18": {
+    "morning": [
+      1,
+      2,
+      3,
+      5,
+      7,
+      8
+    ],
+    "afternoon": [
+      6,
+      4
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-09-21": {
+    "morning": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "afternoon": [
+      7,
+      8
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-09-22": {
+    "morning": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "afternoon": [
+      7,
+      8
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-09-23": {
+    "morning": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "afternoon": [
+      7,
+      8
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-09-24": {
+    "morning": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "afternoon": [
+      7,
+      8
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-09-25": {
+    "morning": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "afternoon": [
+      7,
+      8
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-09-28": {
+    "morning": [
+      2,
+      4,
+      5,
+      6,
+      7,
+      8
+    ],
+    "afternoon": [
+      3,
+      1
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-09-29": {
+    "morning": [
+      2,
+      4,
+      5,
+      6,
+      7,
+      8
+    ],
+    "afternoon": [
+      3,
+      1
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-09-30": {
+    "morning": [
+      2,
+      4,
+      5,
+      6,
+      7,
+      8
+    ],
+    "afternoon": [
+      3,
+      1
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-10-01": {
+    "morning": [
+      2,
+      4,
+      5,
+      6,
+      7,
+      8
+    ],
+    "afternoon": [
+      3,
+      1
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-10-02": {
+    "morning": [
+      2,
+      4,
+      5,
+      6,
+      7,
+      8
+    ],
+    "afternoon": [
+      3,
+      1
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-10-05": {
+    "morning": [
+      1,
+      3,
+      4,
+      6,
+      7,
+      8
+    ],
+    "afternoon": [
+      5,
+      2
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-10-06": {
+    "morning": [
+      1,
+      3,
+      4,
+      6,
+      7,
+      8
+    ],
+    "afternoon": [
+      5,
+      2
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-10-07": {
+    "morning": [
+      1,
+      3,
+      4,
+      6,
+      7,
+      8
+    ],
+    "afternoon": [
+      5,
+      2
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-10-08": {
+    "morning": [
+      1,
+      3,
+      4,
+      6,
+      7,
+      8
+    ],
+    "afternoon": [
+      5,
+      2
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-10-09": {
+    "morning": [
+      1,
+      3,
+      4,
+      6
+    ],
+    "afternoon": [
+      2,
+      5
+    ],
+    "closed": false,
+    "holidayType": "alicante",
+    "holiday": "Día de la Comunitat Valenciana"
+  },
+  "2026-10-12": {
+    "morning": [
+      1,
+      2
+    ],
+    "afternoon": [
+      4,
+      6
+    ],
+    "closed": false,
+    "holidayType": "national",
+    "holiday": "Fiesta Nacional de España"
+  },
+  "2026-10-13": {
+    "morning": [
+      1,
+      2,
+      3,
+      5,
+      7,
+      8
+    ],
+    "afternoon": [
+      6,
+      4
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-10-14": {
+    "morning": [
+      1,
+      2,
+      3,
+      5,
+      7,
+      8
+    ],
+    "afternoon": [
+      6,
+      4
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-10-15": {
+    "morning": [
+      1,
+      2,
+      3,
+      5,
+      7,
+      8
+    ],
+    "afternoon": [
+      6,
+      4
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-10-16": {
+    "morning": [
+      1,
+      2,
+      3,
+      5,
+      7,
+      8
+    ],
+    "afternoon": [
+      6,
+      4
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-10-19": {
+    "morning": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "afternoon": [
+      7,
+      8
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-10-20": {
+    "morning": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "afternoon": [
+      7,
+      8
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-10-21": {
+    "morning": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "afternoon": [
+      7,
+      8
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-10-22": {
+    "morning": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "afternoon": [
+      7,
+      8
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-10-23": {
+    "morning": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "afternoon": [
+      7,
+      8
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-10-26": {
+    "morning": [
+      2,
+      4,
+      5,
+      6,
+      7,
+      8
+    ],
+    "afternoon": [
+      3,
+      1
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-10-27": {
+    "morning": [
+      2,
+      4,
+      5,
+      6,
+      7,
+      8
+    ],
+    "afternoon": [
+      3,
+      1
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-10-28": {
+    "morning": [
+      2,
+      4,
+      5,
+      6,
+      7,
+      8
+    ],
+    "afternoon": [
+      3,
+      1
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-10-29": {
+    "morning": [
+      2,
+      4,
+      5,
+      6,
+      7,
+      8
+    ],
+    "afternoon": [
+      3,
+      1
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-10-30": {
+    "morning": [
+      2,
+      4,
+      5,
+      6,
+      7,
+      8
+    ],
+    "afternoon": [
+      3,
+      1
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-11-02": {
+    "morning": [
+      1,
+      3,
+      4,
+      6,
+      7,
+      8
+    ],
+    "afternoon": [
+      5,
+      2
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-11-03": {
+    "morning": [
+      1,
+      3,
+      4,
+      6,
+      7,
+      8
+    ],
+    "afternoon": [
+      5,
+      2
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-11-04": {
+    "morning": [
+      1,
+      3,
+      4,
+      6,
+      7,
+      8
+    ],
+    "afternoon": [
+      5,
+      2
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-11-05": {
+    "morning": [
+      1,
+      3,
+      4,
+      6,
+      7,
+      8
+    ],
+    "afternoon": [
+      5,
+      2
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-11-06": {
+    "morning": [
+      1,
+      3,
+      4,
+      6,
+      7,
+      8
+    ],
+    "afternoon": [
+      5,
+      2
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-11-09": {
+    "morning": [
+      1,
+      2,
+      3,
+      5,
+      7,
+      8
+    ],
+    "afternoon": [
+      6,
+      4
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-11-10": {
+    "morning": [
+      1,
+      2,
+      3,
+      5,
+      7,
+      8
+    ],
+    "afternoon": [
+      6,
+      4
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-11-11": {
+    "morning": [
+      1,
+      2,
+      3,
+      5,
+      7,
+      8
+    ],
+    "afternoon": [
+      6,
+      4
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-11-12": {
+    "morning": [
+      1,
+      2,
+      3,
+      5,
+      7,
+      8
+    ],
+    "afternoon": [
+      6,
+      4
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-11-13": {
+    "morning": [
+      1,
+      2,
+      3,
+      5,
+      7,
+      8
+    ],
+    "afternoon": [
+      6,
+      4
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-11-16": {
+    "morning": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "afternoon": [
+      7,
+      8
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-11-17": {
+    "morning": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "afternoon": [
+      7,
+      8
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-11-18": {
+    "morning": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "afternoon": [
+      7,
+      8
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-11-19": {
+    "morning": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "afternoon": [
+      7,
+      8
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-11-20": {
+    "morning": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "afternoon": [
+      7,
+      8
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-11-23": {
+    "morning": [
+      2,
+      4,
+      5,
+      6,
+      7,
+      8
+    ],
+    "afternoon": [
+      3,
+      1
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-11-24": {
+    "morning": [
+      2,
+      4,
+      5,
+      6,
+      7,
+      8
+    ],
+    "afternoon": [
+      3,
+      1
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-11-25": {
+    "morning": [
+      2,
+      4,
+      5,
+      6,
+      7,
+      8
+    ],
+    "afternoon": [
+      3,
+      1
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-11-26": {
+    "morning": [
+      2,
+      4,
+      5,
+      6,
+      7,
+      8
+    ],
+    "afternoon": [
+      3,
+      1
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-11-27": {
+    "morning": [
+      2,
+      4,
+      5,
+      6,
+      7,
+      8
+    ],
+    "afternoon": [
+      3,
+      1
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-11-30": {
+    "morning": [
+      1,
+      3,
+      4,
+      6,
+      7,
+      8
+    ],
+    "afternoon": [
+      5,
+      2
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-12-01": {
+    "morning": [
+      1,
+      3,
+      4,
+      6,
+      7,
+      8
+    ],
+    "afternoon": [
+      5,
+      2
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-12-02": {
+    "morning": [
+      1,
+      3,
+      4,
+      6,
+      7,
+      8
+    ],
+    "afternoon": [
+      5,
+      2
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-12-03": {
+    "morning": [
+      1,
+      3,
+      4,
+      6,
+      7,
+      8
+    ],
+    "afternoon": [
+      5,
+      2
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-12-04": {
+    "morning": [
+      1,
+      3,
+      4,
+      6,
+      7,
+      8
+    ],
+    "afternoon": [
+      5,
+      2
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-12-07": {
+    "morning": [
+      1,
+      2,
+      3,
+      5,
+      7,
+      8
+    ],
+    "afternoon": [
+      6,
+      4
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-12-08": {
+    "morning": [
+      1,
+      2
+    ],
+    "afternoon": [
+      4,
+      6
+    ],
+    "closed": false,
+    "holidayType": "national",
+    "holiday": "Inmaculada Concepción"
+  },
+  "2026-12-09": {
+    "morning": [
+      1,
+      2,
+      3,
+      5,
+      7,
+      8
+    ],
+    "afternoon": [
+      6,
+      4
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-12-10": {
+    "morning": [
+      1,
+      2,
+      3,
+      5,
+      7,
+      8
+    ],
+    "afternoon": [
+      6,
+      4
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-12-11": {
+    "morning": [
+      1,
+      2,
+      3,
+      5,
+      7,
+      8
+    ],
+    "afternoon": [
+      6,
+      4
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-12-14": {
+    "morning": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "afternoon": [
+      7,
+      8
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-12-15": {
+    "morning": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "afternoon": [
+      7,
+      8
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-12-16": {
+    "morning": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "afternoon": [
+      7,
+      8
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-12-17": {
+    "morning": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "afternoon": [
+      7,
+      8
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-12-18": {
+    "morning": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "afternoon": [
+      7,
+      8
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-12-21": {
+    "morning": [
+      2,
+      4,
+      5,
+      6,
+      7,
+      8
+    ],
+    "afternoon": [
+      3,
+      1
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-12-22": {
+    "morning": [
+      2,
+      4,
+      5,
+      6,
+      7,
+      8
+    ],
+    "afternoon": [
+      3,
+      1
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-12-23": {
+    "morning": [
+      2,
+      4,
+      5,
+      6,
+      7,
+      8
+    ],
+    "afternoon": [
+      3,
+      1
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-12-24": {
+    "morning": [
+      2,
+      4,
+      5,
+      6,
+      7,
+      8
+    ],
+    "afternoon": [
+      3,
+      1
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-12-25": {
+    "morning": [],
+    "afternoon": [],
+    "closed": true,
+    "holidayType": "closure",
+    "holiday": "Navidad"
+  },
+  "2026-12-28": {
+    "morning": [
+      1,
+      3,
+      4,
+      6,
+      7,
+      8
+    ],
+    "afternoon": [
+      5,
+      2
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-12-29": {
+    "morning": [
+      1,
+      3,
+      4,
+      6,
+      7,
+      8
+    ],
+    "afternoon": [
+      5,
+      2
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-12-30": {
+    "morning": [
+      1,
+      3,
+      4,
+      6,
+      7,
+      8
+    ],
+    "afternoon": [
+      5,
+      2
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2026-12-31": {
+    "morning": [
+      1,
+      3,
+      4,
+      6,
+      7,
+      8
+    ],
+    "afternoon": [
+      5,
+      2
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  },
+  "2027-01-01": {
+    "morning": [
+      1,
+      3,
+      4,
+      6,
+      7,
+      8
+    ],
+    "afternoon": [
+      5,
+      2
+    ],
+    "closed": false,
+    "holidayType": null,
+    "holiday": null
+  }
+}

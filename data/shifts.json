@@ -1,1 +1,24 @@
-{}
+{
+  "morning": {
+    "start": "08:00",
+    "end": "16:00",
+    "hours": 8
+  },
+  "afternoon": {
+    "start": "15:30",
+    "end": "00:00",
+    "hours": 8
+  },
+  "friday": {
+    "morning": {
+      "start": "08:00",
+      "end": "15:00",
+      "hours": 8
+    },
+    "afternoon": {
+      "start": "15:00",
+      "end": "00:00",
+      "hours": 9
+    }
+  }
+}
