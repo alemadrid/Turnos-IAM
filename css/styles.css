@@ -398,6 +398,42 @@ body {
   gap: 14px;
 }
 
+/* ── Cuadrante semanal ── */
+.week-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.week-day {
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 14px;
+}
+.week-day-current {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent) inset;
+}
+.week-day-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 6px;
+}
+.week-day-name { font-size: .85rem; font-weight: 700; letter-spacing: .02em; }
+.week-today .week-day-name { color: var(--accent); }
+.week-day-date { font-size: .72rem; color: var(--text-muted); font-family: var(--font-mono); }
+.week-day-body { display: flex; flex-direction: column; gap: 6px; }
+.week-closed, .week-empty {
+  font-size: .8rem;
+  color: var(--text-muted);
+  padding: 6px 4px;
+}
+.week-day .shift-row { padding: 6px 10px; }
+.week-day .shift-label { min-width: 120px; font-size: .75rem; }
+
 .closed-badge {
   font-size: 1.1rem;
   font-weight: 700;

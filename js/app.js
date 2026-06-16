@@ -233,46 +233,73 @@ function positionTip(e, tip) {
 // ─── DASHBOARD ───────────────────────────────────────────────
 function renderDashboard() {
   const today      = window.formatDateLocal(new Date());
-  const todayData  = APP.schedule[today] || null;
   const totalDays  = Object.keys(APP.schedule).length;
   const vacEntries = Object.values(APP.vacations).flat().length;
   const onVacToday = APP.users.filter(u => window.isOnVacation(u.id, today, APP.vacations));
   const holType    = window.getHolidayType ? window.getHolidayType(today, APP.holidays) : null;
   const holName    = window.getHolidayName(today, APP.holidays);
+  const todayData  = APP.schedule[today] || null;
   const closedToday = todayData && todayData.closed;
-  const dow         = new Date().getDay();
-  const isWeekend   = (dow === 0 || dow === 6);
 
-  let todayCard = '';
-  if (isWeekend) {
-    todayCard = `<div class="today-card closed"><div class="closed-icon">📅</div><div class="closed-text">Fin de semana — sin servicio</div></div>`;
-  } else if (closedToday) {
-    todayCard = `<div class="today-card closed"><div class="closed-icon">🔒</div><div class="closed-text">Servicio cerrado — ${holName || 'Festivo'}</div></div>`;
-  } else if (todayData) {
-    const mNames = (todayData.morning   || []).map(id => userName(id));
-    const aNames = (todayData.afternoon || []).map(id => userName(id));
-    const badge  = holType ? `<span class="hol-badge hol-${holType}">${holName}</span>` : '';
-    todayCard = `
-      <div class="today-card">
-        ${badge}
+  // Horarios configurados (para mostrar las franjas reales, viernes incluido)
+  const shiftCfg = APP.shifts ||
+    { morning: { start: '08:00', end: '17:00' }, afternoon: { start: '15:00', end: '24:00' } };
+  const friCfg = shiftCfg.friday || { morning: shiftCfg.morning, afternoon: shiftCfg.afternoon };
+  const timeOf = (isFri, slot) => {
+    const c = (isFri ? friCfg : shiftCfg)[slot] || {};
+    return `${c.start || '--'}–${c.end || '--'}`;
+  };
+
+  // ── Cuadrante de la semana (lunes a viernes de la semana en curso) ──
+  // En fin de semana se muestra la próxima semana laboral.
+  const base = new Date();
+  const bdow = base.getDay(); // 0=Dom..6=Sáb
+  const toMonday = bdow === 0 ? 1 : bdow === 6 ? 2 : -(bdow - 1);
+  const monday = new Date(base);
+  monday.setDate(base.getDate() + toMonday);
+
+  const DAY_NAMES = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'];
+  let weekRows = '';
+  for (let i = 0; i < 5; i++) {
+    const d       = new Date(monday);
+    d.setDate(monday.getDate() + i);
+    const dateStr = window.formatDateLocal(d);
+    const isFri   = d.getDay() === 5;
+    const isToday = dateStr === today;
+    const dData   = APP.schedule[dateStr] || null;
+    const hType   = window.getHolidayType ? window.getHolidayType(dateStr, APP.holidays) : null;
+    const hName   = window.getHolidayName(dateStr, APP.holidays);
+    const dayLabel = `<div class="week-day-head ${isToday ? 'week-today' : ''}">
+        <span class="week-day-name">${DAY_NAMES[i]}${isToday ? ' · hoy' : ''}</span>
+        <span class="week-day-date">${dateStr}</span>
+      </div>`;
+
+    let body;
+    if (dData && dData.closed) {
+      body = `<div class="week-closed">🔒 Cerrado${hName ? ' — ' + hName : ''}</div>`;
+    } else if (dData) {
+      const mNames = (dData.morning   || []).map(id => userName(id));
+      const aNames = (dData.afternoon || []).map(id => userName(id));
+      const badge  = hType ? `<span class="hol-badge hol-${hType}">${hName}</span>` : '';
+      body = `${badge}
         <div class="shift-row">
-          <div class="shift-label morning-label"><span class="shift-icon">☀</span><span>Mañana <span class="shift-time">08:00–17:00</span></span></div>
+          <div class="shift-label morning-label"><span class="shift-icon">☀</span><span>Mañana <span class="shift-time">${timeOf(isFri, 'morning')}</span></span></div>
           <div class="tech-chips">${mNames.map(n => `<span class="chip">${n}</span>`).join('') || '<span class="chip empty">Sin asignar</span>'}</div>
         </div>
         <div class="shift-row">
-          <div class="shift-label afternoon-label"><span class="shift-icon">🌙</span><span>Tarde <span class="shift-time">15:00–24:00</span></span></div>
+          <div class="shift-label afternoon-label"><span class="shift-icon">🌙</span><span>Tarde <span class="shift-time">${timeOf(isFri, 'afternoon')}</span></span></div>
           <div class="tech-chips">${aNames.map(n => `<span class="chip chip-afternoon">${n}</span>`).join('') || '<span class="chip empty">Sin asignar</span>'}</div>
-        </div>
-      </div>`;
-  } else {
-    todayCard = `<div class="today-card empty-state"><p>Sin cuadrante generado para hoy.</p><button class="btn-primary" onclick="navigateTo('schedule')">Ir al Planificador</button></div>`;
+        </div>`;
+    } else {
+      body = `<div class="week-empty">Sin cuadrante</div>`;
+    }
+    weekRows += `<div class="week-day ${isToday ? 'week-day-current' : ''}">${dayLabel}<div class="week-day-body">${body}</div></div>`;
   }
+  const weekCard = `<div class="week-grid">${weekRows}</div>`;
 
   // Equipo: sin perfil, sin estrella
   const teamGrid = APP.users.map(u => {
     const onVac  = window.isOnVacation(u.id, today, APP.vacations);
-    const used   = window.getVacationDaysUsed(u.id, APP.vacations);
-    const pct    = Math.min(100, Math.round((used / u.vacationDaysTotal) * 100));
     const status = onVac ? 'vacation' : (closedToday ? 'holiday' : 'working');
     const nextVac = (APP.vacations[u.id] || [])
       .filter(v => window.parseLocalDate(v.end) >= new Date())
@@ -290,8 +317,6 @@ function renderDashboard() {
         <div class="member-avatar av-${status}">${initials(u.name)}</div>
         <div class="member-info">
           <div class="member-name">${u.name}</div>
-          <div class="vac-bar-wrap"><div class="vac-bar" style="width:${pct}%"></div></div>
-          <div class="vac-label">${used}/${u.vacationDaysTotal} días vacaciones</div>
           ${startLabel}
         </div>
         <div class="member-status-col">${statusEl}</div>
@@ -310,7 +335,7 @@ function renderDashboard() {
       <div class="stat-card ${onVacToday.length > 0 ? 'stat-warning' : ''}"><div class="stat-icon">🏖</div><div class="stat-value">${onVacToday.length}</div><div class="stat-label">De vacaciones hoy</div></div>
     </div>
     <section class="section-card">
-      <h2 class="section-title">Cuadrante de Hoy</h2>${todayCard}
+      <h2 class="section-title">Cuadrante de la Semana</h2>${weekCard}
     </section>
     <section class="section-card">
       <h2 class="section-title">Estado del Equipo</h2>
@@ -941,11 +966,17 @@ function renderSettingsView() {
                style="width:60px;background:var(--bg-4);border:1px solid var(--border);
                       color:var(--text);padding:3px 6px;border-radius:4px;text-align:center">`
       : `<span class="mono">${vacValue}</span>`;
+    // Vacaciones laborables disfrutadas / total y restantes (solo informativo).
+    const vacUsed   = window.getVacationDaysUsed(u.id, APP.vacations);
+    const vacTotal  = u.vacationDaysTotal;
+    const vacLeft   = Math.max(0, vacTotal - vacUsed);
+    const usageCell = `<span class="mono" title="Disfrutadas / Total · Restantes: ${vacLeft}">${vacUsed}/${vacTotal} <span style="color:var(--text-muted)">(${vacLeft} rest.)</span></span>`;
     return `<tr>
       <td>${u.name}</td>
       <td class="mono">${u.joinDate || '—'}</td>
       <td class="mono">${effStart}</td>
       <td>${vacCell}</td>
+      <td>${usageCell}</td>
       <td>${badge}</td>
       <td>${editBtn}${resetBtn}</td>
     </tr>`;
@@ -1054,7 +1085,7 @@ function renderSettingsView() {
         ${!APP.isAdmin ? '<br><span style="opacity:.7">Activa el modo Administrador para editar.</span>' : ''}
       </p>
       <div class="table-wrap"><table class="data-table">
-        <thead><tr><th>Técnico</th><th>joinDate (JSON)</th><th>Fecha efectiva cómputo</th><th>Días vac. (naturales)</th><th>Estado</th><th></th></tr></thead>
+        <thead><tr><th>Técnico</th><th>joinDate (JSON)</th><th>Fecha efectiva cómputo</th><th>Días vac. (naturales)</th><th>Vac. disfrutadas / total</th><th>Estado</th><th></th></tr></thead>
         <tbody>${startDateRows}</tbody>
       </table></div>
       ${APP.isAdmin ? `<div class="toolbar" style="margin-top:10px">
