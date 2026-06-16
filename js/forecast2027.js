@@ -51,35 +51,31 @@
   function buildRandomVacations(users, holidays) {
     const vacations = {};
     users.forEach(u => {
-      const target = u.vacationDaysTotal || 22;
+      const target = 31; // días naturales de vacaciones (año completo)
       const ranges = [];
       const usedWeeks = new Set();
-      let assignedWorking = 0;
+      let assignedNatural = 0;
       let guard = 0;
-      while (assignedWorking < target && guard < 60) {
+      while (assignedNatural < target && guard < 80) {
         guard++;
         // Semana aleatoria del año
         const week = 1 + Math.floor(Math.random() * 50);
         if (usedWeeks.has(week)) continue;
         usedWeeks.add(week);
         // Lunes de esa semana ISO aproximada: 1 ene + (week-1)*7, ajustado a lunes
-        const jan1 = new Date(YEAR, 0, 1);
         const approx = new Date(YEAR, 0, 1 + (week - 1) * 7);
         const dow = approx.getDay();
         const toMon = dow === 0 ? 1 : (dow === 1 ? 0 : 8 - dow);
         const monday = new Date(approx.getFullYear(), approx.getMonth(), approx.getDate() + toMon);
         if (monday.getFullYear() !== YEAR) continue;
-        const remaining = target - assignedWorking;
-        // Bloque de 1..5 días laborables
-        const blockLen = Math.max(1, Math.min(5, remaining, 2 + Math.floor(Math.random() * 4)));
-        const friOffset = blockLen - 1;
-        const end = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + friOffset);
+        const remaining = target - assignedNatural;
+        // Bloque de 5..9 días naturales (≈ 1 semana o algo más), sin pasarse del total
+        const blockLen = Math.max(3, Math.min(9, remaining, 5 + Math.floor(Math.random() * 5)));
+        const end = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + (blockLen - 1));
         const startStr = window.formatDateLocal(monday);
         const endStr   = window.formatDateLocal(end);
-        const wd = countWorkingDays(startStr, endStr, holidays);
-        if (wd === 0) continue;
         ranges.push({ start: startStr, end: endStr });
-        assignedWorking += wd;
+        assignedNatural += blockLen;
       }
       ranges.sort((a, b) => a.start.localeCompare(b.start));
       vacations[u.id] = ranges;
@@ -108,7 +104,7 @@
     const summary = users.map(u => ({
       id: u.id, name: u.name, profile: u.profile,
       morning: 0, afternoon: 0, total: 0,
-      vacTotal: u.vacationDaysTotal || 0,
+      vacTotal: 31,
       vacAssigned: window.getVacationDaysUsed(u.id, vacations),
       vacWorkingDays: 0,
       maxHours, workedHours: 0, diff: 0, status: 'ok', equity: 0
@@ -270,14 +266,14 @@
         ? `<span class="hours-diff-over">+${s.diff}h</span>`
         : s.diff < 0 ? `<span class="hours-diff-under">${s.diff}h</span>`
         : `<span class="hours-diff-ok">±0h</span>`;
-      const vacWarn = s.vacWorkingDays > s.vacTotal ? ' style="color:var(--orange)"' : '';
+      const vacWarn = s.vacAssigned > s.vacTotal ? ' style="color:var(--orange)"' : '';
       return `<tr>
         <td>${s.name} <span style="font-size:.7rem;color:var(--text-muted)">${s.profile}</span></td>
         <td class="num">${s.morning}</td>
         <td class="num">${s.afternoon}</td>
         <td class="num">${s.total}</td>
         <td class="num">${s.vacTotal}</td>
-        <td class="num"${vacWarn}>${s.vacWorkingDays}</td>
+        <td class="num"${vacWarn}>${s.vacAssigned}</td>
         <td class="num">${s.maxHours}h</td>
         <td>
           <div class="hours-cell">
@@ -299,7 +295,7 @@
     // Totales agregados
     const totM   = sim.summary.reduce((a, s) => a + s.morning, 0);
     const totA   = sim.summary.reduce((a, s) => a + s.afternoon, 0);
-    const totVac = sim.summary.reduce((a, s) => a + s.vacWorkingDays, 0);
+    const totVac = sim.summary.reduce((a, s) => a + s.vacAssigned, 0);
     const overCount = sim.summary.filter(s => s.status === 'over').length;
 
     return `
@@ -311,7 +307,7 @@
       <div class="stats-grid">
         <div class="stat-card"><div class="stat-icon">☀</div><div class="stat-value">${totM}</div><div class="stat-label">Turnos de mañana (año)</div></div>
         <div class="stat-card"><div class="stat-icon">🌙</div><div class="stat-value">${totA}</div><div class="stat-label">Turnos de tarde (año)</div></div>
-        <div class="stat-card"><div class="stat-icon">🏖</div><div class="stat-value">${totVac}</div><div class="stat-label">Días vac. laborables asignados</div></div>
+        <div class="stat-card"><div class="stat-icon">🏖</div><div class="stat-value">${totVac}</div><div class="stat-label">Días vac. naturales asignados</div></div>
         <div class="stat-card ${overCount > 0 ? 'stat-warning' : ''}"><div class="stat-icon">⏱</div><div class="stat-value">${overCount}</div><div class="stat-label">Técnicos por encima del máximo</div></div>
       </div>
 
