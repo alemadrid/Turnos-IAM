@@ -601,8 +601,8 @@ body {
   background: var(--bg-3);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 6px 5px 5px;
-  min-height: 110px;
+  padding: 8px 7px 7px;
+  min-height: 138px;
   cursor: pointer;
   transition: var(--transition);
   display: flex;
@@ -613,16 +613,27 @@ body {
 }
 .cal-cell:hover { border-color: var(--accent); background: var(--bg-4); }
 .cal-cell.empty { background: transparent; border-color: transparent; cursor: default; }
-.cal-cell.cell-closure  { background: #0f0d0d; border-color: #2a1a1a; cursor: default; opacity: .7; }
-.cal-cell.cell-national { background: #111620; border-color: #2a3560; }
-.cal-cell.cell-alicante { background: #111a13; border-color: #1e3d22; }
+.cal-cell.cell-closure  { background: #1a0f0f; border: 2px solid #b0413e; cursor: default; }
+.cal-cell.cell-closure::before { content: ''; position: absolute; inset: 0 auto 0 0; width: 4px; background: #d9534f; }
+.cal-cell.cell-national {
+  background: linear-gradient(180deg, rgba(79,142,247,.16), rgba(79,142,247,.05));
+  border: 2px solid var(--accent);
+  box-shadow: inset 0 0 0 1px rgba(79,142,247,.25);
+}
+.cal-cell.cell-national::before { content: ''; position: absolute; inset: 0 auto 0 0; width: 4px; background: var(--accent); }
+.cal-cell.cell-alicante {
+  background: linear-gradient(180deg, rgba(46,204,113,.16), rgba(46,204,113,.05));
+  border: 2px solid var(--green);
+  box-shadow: inset 0 0 0 1px rgba(46,204,113,.25);
+}
+.cal-cell.cell-alicante::before { content: ''; position: absolute; inset: 0 auto 0 0; width: 4px; background: var(--green); }
 .cal-cell.cell-weekend  { background: var(--bg-2); border-color: var(--border); cursor: default; opacity: .45; }
 .cal-cell.cell-today    { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-glow); }
 .cal-cell.cell-today .cell-day-num { color: var(--accent); }
 
 .cell-day-num {
-  font-size: .7rem;
-  font-weight: 600;
+  font-size: .82rem;
+  font-weight: 700;
   color: var(--text-muted);
   font-family: var(--font-mono);
   margin-bottom: 1px;
@@ -637,13 +648,14 @@ body {
 }
 
 .cell-hol-tag {
-  font-size: .6rem;
-  padding: 1px 4px;
+  font-size: .66rem;
+  padding: 1px 5px;
   border-radius: 3px;
   cursor: default;
+  font-weight: 600;
 }
-.hol-national { background: rgba(79,142,247,.2); color: var(--accent); }
-.hol-alicante { background: rgba(46,204,113,.2); color: var(--green); }
+.hol-national { background: rgba(79,142,247,.28); color: var(--accent); }
+.hol-alicante { background: rgba(46,204,113,.28); color: var(--green); }
 
 .cell-vac-ico {
   font-size: .65rem;
@@ -664,7 +676,7 @@ body {
 }
 
 .cell-shift-hdr {
-  font-size: .6rem;
+  font-size: .68rem;
   font-weight: 600;
   font-family: var(--font-mono);
   letter-spacing: .03em;
@@ -681,11 +693,11 @@ body {
 .cell-shift-count { opacity: .7; }
 
 .cell-tech {
-  font-size: .58rem;
+  font-size: .66rem;
   font-family: var(--font-mono);
   color: var(--text-muted);
   padding: 0 3px;
-  line-height: 1.4;
+  line-height: 1.45;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

@@ -66,12 +66,40 @@ window.generateSchedule = function(weeks, users, vacations, holidays, config) {
   const penalties              = {};
   const lastAfternoonWeekIndex = {};
   const monthAfternoonCount    = {};
+  const holidayWorkCount       = {}; // festivos (national/alicante) trabajados
 
   users.forEach(u => {
     penalties[u.id]              = 0;
     lastAfternoonWeekIndex[u.id] = -99;
     monthAfternoonCount[u.id]    = {};
+    holidayWorkCount[u.id]       = 0;
   });
+
+  // ── Reparto equitativo de festivos ──────────────────────────
+  // Selecciona a quienes MENOS festivos han trabajado hasta ahora.
+  // Desempate: menor penalización de tardes y, finalmente, aleatorio.
+  const pickHolidayWorkers = (pool, count) =>
+    shuffled(pool)
+      .sort((a, b) =>
+        (holidayWorkCount[a.id] - holidayWorkCount[b.id]) ||
+        (penalties[a.id] - penalties[b.id]))
+      .slice(0, count);
+
+  // Reparte a los trabajadores del festivo en tarde (preferente 1 senior + 1 junior)
+  // y el resto a mañana.
+  const splitHolidayShift = (workers, aftCount) => {
+    const sen = workers.filter(u => u.profile === 'senior');
+    const jun = workers.filter(u => u.profile === 'junior');
+    let aft;
+    if (aftCount === 2 && sen.length >= 1 && jun.length >= 1) {
+      aft = [sen[0], jun[0]];
+    } else {
+      aft = workers.slice(0, aftCount);
+    }
+    const aftIds = aft.map(u => u.id);
+    const mor = workers.filter(u => !aftIds.includes(u.id));
+    return { aft, mor };
+  };
 
   weeks.forEach((monday, weekIdx) => {
     // Solo días lun-vie (índices 0-4 del array getWeekDays)
@@ -175,28 +203,31 @@ window.generateSchedule = function(weeks, users, vacations, holidays, config) {
       );
 
       if (holType === 'national') {
-        // Festivo nacional: 2 mañana + 2 tarde
-        let aftDay = dayAvailable.filter(u => afternoonIds.includes(u.id)).slice(0, 2);
-        if (aftDay.length < 2) {
-          const extra = dayAvailable.filter(u => !aftDay.map(x => x.id).includes(u.id));
-          aftDay = aftDay.concat(extra).slice(0, 2);
-        }
-        const aftDayIds = aftDay.map(u => u.id);
-        const morDay    = dayAvailable.filter(u => !aftDayIds.includes(u.id)).slice(0, 2);
-        schedule[dateStr] = { morning: morDay.map(u => u.id), afternoon: aftDayIds, closed: false, holidayType: 'national', holiday: holName };
+        // Festivo nacional: 2 mañana + 2 tarde, repartido EQUITATIVAMENTE
+        // entre quienes menos festivos han trabajado.
+        const need    = Math.min(4, dayAvailable.length);
+        const workers = pickHolidayWorkers(dayAvailable, need);
+        const { aft, mor } = splitHolidayShift(workers, Math.min(2, workers.length));
+        workers.forEach(u => holidayWorkCount[u.id]++);
+        schedule[dateStr] = {
+          morning: mor.slice(0, 2).map(u => u.id),
+          afternoon: aft.map(u => u.id),
+          closed: false, holidayType: 'national', holiday: holName
+        };
         return;
       }
 
       if (holType === 'alicante') {
-        // Festivo Alicante/CV: 4 mañana + 2 tarde
-        let aftDay = dayAvailable.filter(u => afternoonIds.includes(u.id)).slice(0, 2);
-        if (aftDay.length < 2) {
-          const extra = dayAvailable.filter(u => !aftDay.map(x => x.id).includes(u.id));
-          aftDay = aftDay.concat(extra).slice(0, 2);
-        }
-        const aftDayIds = aftDay.map(u => u.id);
-        const morDay    = dayAvailable.filter(u => !aftDayIds.includes(u.id)).slice(0, 4);
-        schedule[dateStr] = { morning: morDay.map(u => u.id), afternoon: aftDayIds, closed: false, holidayType: 'alicante', holiday: holName };
+        // Festivo Alicante/CV: 4 mañana + 2 tarde, repartido EQUITATIVAMENTE.
+        const need    = Math.min(6, dayAvailable.length);
+        const workers = pickHolidayWorkers(dayAvailable, need);
+        const { aft, mor } = splitHolidayShift(workers, Math.min(2, workers.length));
+        workers.forEach(u => holidayWorkCount[u.id]++);
+        schedule[dateStr] = {
+          morning: mor.slice(0, 4).map(u => u.id),
+          afternoon: aft.map(u => u.id),
+          closed: false, holidayType: 'alicante', holiday: holName
+        };
         return;
       }
 
@@ -223,5 +254,67 @@ window.generateSchedule = function(weeks, users, vacations, holidays, config) {
     });
   });
 
+  // ── Verificación automática de restricciones ────────────────
+  const violations = window.verifySchedule(schedule, users, vacations, holidays);
+  violations.forEach(v => contingencies.push(v));
+
   return { schedule, contingencies };
+};
+
+/**
+ * Comprueba que el cuadrante cumple todas las restricciones planteadas:
+ *  - Cobertura mínima (2 mañana / 2 tarde en días normales).
+ *  - Nadie en mañana y tarde el mismo día.
+ *  - Pareja de tarde estructurada (1 senior + 1 junior) en días normales.
+ *  - Equidad de festivos trabajados entre todo el equipo.
+ * Devuelve un array de mensajes (vacío si todo correcto).
+ */
+window.verifySchedule = function(schedule, users, vacations, holidays) {
+  const issues = [];
+  const holidayWork   = {};
+  const afternoonWork = {};
+  const morningWork   = {};
+  users.forEach(u => { holidayWork[u.id] = 0; afternoonWork[u.id] = 0; morningWork[u.id] = 0; });
+  const profileOf = id => { const u = users.find(x => x.id === id); return u ? u.profile : null; };
+
+  Object.entries(schedule).forEach(([dateStr, day]) => {
+    if (day.closed) return;
+    const m = day.morning   || [];
+    const a = day.afternoon || [];
+
+    // Nadie duplicado mañana + tarde
+    const both = m.filter(id => a.includes(id));
+    if (both.length) issues.push(`❌ ${dateStr}: técnico asignado a mañana y tarde a la vez.`);
+
+    m.forEach(id => morningWork[id]++);
+    a.forEach(id => afternoonWork[id]++);
+
+    const isHoliday = day.holidayType === 'national' || day.holidayType === 'alicante';
+    if (isHoliday) {
+      m.concat(a).forEach(id => holidayWork[id]++);
+      if (a.length < 2) issues.push(`⚠ ${dateStr} (festivo): cobertura de tarde ${a.length}/2.`);
+    } else {
+      if (m.length < 2) issues.push(`⚠ ${dateStr}: cobertura de mañana ${m.length}/2.`);
+      if (a.length < 2) issues.push(`⚠ ${dateStr}: cobertura de tarde ${a.length}/2.`);
+      // Pareja de tarde: preferente 1 senior + 1 junior
+      if (a.length === 2) {
+        const profs = a.map(profileOf);
+        if (!(profs.includes('senior') && profs.includes('junior'))) {
+          issues.push(`ℹ ${dateStr}: pareja de tarde no estándar (${profs.join(' + ')}).`);
+        }
+      }
+    }
+  });
+
+  // Equidad de festivos trabajados
+  const hw = users.map(u => holidayWork[u.id]);
+  if (hw.length) {
+    const hwMax = Math.max(...hw), hwMin = Math.min(...hw);
+    if (hwMax - hwMin > 2) {
+      const detalle = users.map(u => `${u.name}: ${holidayWork[u.id]}`).join(', ');
+      issues.push(`⚠ Equidad de festivos: rango ${hwMin}–${hwMax} (${detalle}).`);
+    }
+  }
+
+  return issues;
 };

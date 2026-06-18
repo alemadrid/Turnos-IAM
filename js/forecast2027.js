@@ -224,7 +224,7 @@
         const vacUsers  = (APP.users || []).filter(u => window.isOnVacation(u.id, dateStr, vacations));
         const mAllNames = mIds.map(id => uName(id)).join('&#10;') || 'Sin asignar';
         const aAllNames = aIds.map(id => uName(id)).join('&#10;') || 'Sin asignar';
-        const holBadge  = holType ? `<span class="cell-hol-tag hol-${holType}" data-tip="${holName}">${holType==='alicante'?'🎆':'🇪🇸'}</span>` : '';
+        const holBadge  = holType ? `<span class="cell-hol-tag hol-${holType}" data-tip="${holName}">${holType==='alicante'?'🎆':'🇪🇸'} Festivo</span>` : '';
         const vacBadge  = vacUsers.length > 0
           ? `<span class="cell-vac-ico" data-tip="De vacaciones:&#10;${vacUsers.map(u=>u.name).join('&#10;')}">🏖${vacUsers.length}</span>` : '';
         const bdUsers   = (APP.users || []).filter(u => (birthdays || {})[u.id] === dateStr);
